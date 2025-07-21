@@ -13,22 +13,13 @@ fn main() {
 // Scene Objects
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct Sphere {
-    center: [f32; 3],
-    radius: f32,
-    color: [f32; 3],
-    _padding: f32,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct Plane {
     point: [f32; 3],
     _padding1: f32,
     normal: [f32; 3],
     _padding2: f32,
     color: [f32; 3],
-    _padding: f32,
+    _padding3: f32,
 }
 
 #[repr(C)]
@@ -43,18 +34,7 @@ struct Ellipse {
     inner_radius_a: f32,
     inner_radius_b: f32,
     color: [f32; 3],
-    _padding: f32,
-}
-
-impl Default for Sphere {
-    fn default() -> Self {
-        Self {
-            center: [0.0; 3],
-            radius: 1.0,
-            color: [0.0; 3],
-            _padding: 0.0,
-        }
-    }
+    _padding3: f32,
 }
 
 impl Default for Plane {
@@ -65,7 +45,7 @@ impl Default for Plane {
             normal: [0.0, 1.0, 0.0],
             _padding2: 0.0,
             color: [0.0; 3],
-            _padding: 0.0,
+            _padding3: 0.0,
         }
     }
 }
@@ -82,24 +62,22 @@ impl Default for Ellipse {
             inner_radius_a: 0.0,
             inner_radius_b: 0.0,
             color: [0.0; 3],
-            _padding: 0.0,
+            _padding3: 0.0,
         }
     }
 }
 
 
-const MAX_SPHERES: usize = 8;
 const MAX_PLANES: usize = 4;
 const MAX_ELLIPSES: usize = 8;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct SceneData {
-    sphere_count: u32,
     plane_count: u32,
     ellipse_count: u32,
-    _padding: u32,
-    spheres: [Sphere; MAX_SPHERES],
+    _padding1: u32,
+    _padding2: u32,
     planes: [Plane; MAX_PLANES],
     ellipses: [Ellipse; MAX_ELLIPSES],
 }
@@ -112,8 +90,8 @@ struct Uniforms {
     scene_id: u32,
     camera_pos: [f32; 3],
     _padding2: f32,
-    camera_dir: [f32; 3],
-    _padding3: f32,
+    // camera_dir: [f32; 3],
+    // _padding3: f32,
 }
 
 
@@ -142,11 +120,10 @@ impl Model {
         let mut scenes = Vec::new();
 
         let mut scene1 = SceneData {
-            sphere_count: 0,
             plane_count: 1,
             ellipse_count: 4,
-            _padding: 0,
-            spheres: [Sphere::default(); MAX_SPHERES],
+            _padding1: 0,
+            _padding2: 0,
             planes: [Plane::default(); MAX_PLANES],
             ellipses: [Ellipse::default(); MAX_ELLIPSES],
         };
@@ -156,8 +133,8 @@ impl Model {
             _padding1: 0.0,
             normal: [0.0, 1.0, 0.0],
             _padding2: 0.0,
-            color: [0.2, 0.2, 0.2],
-            _padding: 0.0,
+            color: [0.2, 0.0, 0.0],
+            _padding3: 0.0,
         };
 
         let e_a = 2.0;
@@ -174,7 +151,7 @@ impl Model {
             inner_radius_a: e_a - rim_thickness,
             inner_radius_b: e_b - rim_thickness,
             color: [0.7, 0.4, 0.0],
-            _padding: 0.0,
+            _padding3: 0.0,
         };
         scene1.ellipses[1] = Ellipse {
             center: scene1.ellipses[0].center,
@@ -190,46 +167,10 @@ impl Model {
                 scene1.ellipses[0].color[1] - 0.2,
                 scene1.ellipses[0].color[2] - 0.2,
             ],
-            _padding: 0.0,
+            _padding3: 0.0,
         };
 
         scenes.push(scene1);
-        
-        // Scene 2: Sphere showcase
-        let mut scene2 = SceneData {
-            sphere_count: 3,
-            plane_count: 1,
-            ellipse_count: 0,
-            _padding: 0,
-            spheres: [Sphere::default(); MAX_SPHERES],
-            planes: [Plane::default(); MAX_PLANES],
-            ellipses: [Ellipse::default(); MAX_ELLIPSES],
-        };
-        
-        scene2.planes[0] = scene1.planes[0]; // Same ground
-        
-        scene2.spheres[0] = Sphere {
-            center: [-1.5, -1.0, -4.0],
-            radius: 1.0,
-            color: [0.9, 0.9, 0.9],
-            _padding: 0.0,
-        };
-        
-        scene2.spheres[1] = Sphere {
-            center: [1.0, -1.0, -3.0],
-            radius: 1.0,
-            color: [0.3, 0.3, 1.0],
-            _padding: 0.0,
-        };
-        
-        scene2.spheres[2] = Sphere {
-            center: [0.0, 0.5, -5.0],
-            radius: 0.8,
-            color: [0.3, 1.0, 0.3],
-            _padding: 0.0,
-        };
-        
-        scenes.push(scene2);
 
         scenes
     }
@@ -256,13 +197,6 @@ impl Model {
                         -0.5,
                         rotation.cos(),
                     ];
-                }
-            }
-            1 => {
-                // Animate sphere scene
-                if self.scenes[1].sphere_count > 2 {
-                    let bounce = (time * 2.0).sin() * 0.5;
-                    self.scenes[1].spheres[2].center[1] = 0.5 + bounce;
                 }
             }
             _ => {}
@@ -399,10 +333,6 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
             model.switch_scene(0);
             println!("Switched to Scene 1: Ellipse Showcase");
         },
-        Key::Key2 => {
-            model.switch_scene(1);
-            println!("Switched to Scene 2: Sphere Showcase");
-        },
         _ => {}
     }
 }
@@ -446,8 +376,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
         scene_id: model.current_scene,
         camera_pos,
         _padding2: 0.0,
-        camera_dir: [0.0, 0.0, -1.0],
-        _padding3: 0.0,
+        // camera_dir: [0.0, 0.0, -1.0],
+        // _padding3: 0.0,
     };
 
     let scene_data = model.scenes[model.current_scene as usize];
