@@ -149,30 +149,48 @@ fn trace_ray(ray: Ray) -> HitInfo {
     hit_info.hit = false;
     hit_info.t = 1000.0;
     
-    // Objects positioned nicely
+    // // Objects positioned nicely
     let ground_plane = Plane(vec3<f32>(0.0, -2.0, 0.0), vec3<f32>(0.0, 1.0, 0.0));
-    let sphere1 = Sphere(vec3<f32>(-1.5, -1.0, -4.0), 1.0);  // Left sphere (mirror)
-    let sphere2 = Sphere(vec3<f32>(1.0, -1.0, -3.0), 1.0);   // Right sphere (less reflective)
-    let sphere3 = Sphere(vec3<f32>(0.0, 0.5, -5.0), 0.8);    // Floating sphere (non-reflective)
+    // let sphere1 = Sphere(vec3<f32>(-1.5, -1.0, -4.0), 1.0);  // Left sphere (mirror)
+    // let sphere2 = Sphere(vec3<f32>(1.0, -1.0, -3.0), 1.0);   // Right sphere (less reflective)
+    // let sphere3 = Sphere(vec3<f32>(0.0, 0.5, -5.0), 0.8);    // Floating sphere (non-reflective)
+
+    let e_a = 2.0;
+    let e_b = 2.5;
+    let rim_thickness = 0.2;
     
-    // Elliptical ring - horizontal on the ground
-    let ellipse1 = Ellipse(
-        vec3<f32>(0.0, -1.8, -4.0),     // Center (slightly above ground)
-        vec3<f32>(0.0, 1.0, 0.0),       // Normal (horizontal)
-        3.0,                            // Outer radius A
-        2.0,                            // Outer radius B  
-        1.5,                            // Inner radius A
-        1.0                             // Inner radius B
+    let ellipse1out = Ellipse(
+        vec3<f32>(0.0, 1.8, -4.0),
+        vec3<f32>(0.0, -0.5, 1.0),
+        e_a,
+        e_b,
+        e_a - rim_thickness,
+        e_b - rim_thickness,
+    );
+    let ellipse1in = Ellipse(
+        ellipse1out.center,
+        ellipse1out.normal,
+        ellipse1out.inner_radius_a,  
+        ellipse1out.inner_radius_b,
+        0.0,
+        0.0,
     );
     
-    // Vertical ellipse ring
-    let ellipse2 = Ellipse(
-        vec3<f32>(2.5, 0.0, -4.0),      // Center (to the right)
-        vec3<f32>(1.0, 0.0, 0.0),       // Normal (vertical, facing left/right)
-        2.0,                            // Outer radius A
-        1.5,                            // Outer radius B
-        1.0,                            // Inner radius A
-        0.8                             // Inner radius B
+    let ellipse2out = Ellipse(
+        vec3<f32>(2.5, 0.0, -5.0),
+        vec3<f32>(1.0, 0.0, 0.0),
+        e_a,
+        e_b,
+        e_a - rim_thickness,
+        e_b - rim_thickness,
+    );
+    let ellipse2in = Ellipse(
+        ellipse2out.center,
+        ellipse2out.normal,
+        ellipse2out.inner_radius_a,  
+        ellipse2out.inner_radius_b,
+        0.0,
+        0.0,
     );
     
     // Check plane
@@ -206,59 +224,80 @@ fn trace_ray(ray: Ray) -> HitInfo {
     }
     
     // Check ellipse 1 (horizontal ring)
-    let ellipse1_t = ray_ellipse_intersect(ray, ellipse1);
-    if (ellipse1_t > 0.001 && ellipse1_t < hit_info.t) {
+    let ellipse1in_t = ray_ellipse_intersect(ray, ellipse1in);
+    if (ellipse1in_t > 0.001 && ellipse1in_t < hit_info.t) {
         hit_info.hit = true;
-        hit_info.t = ellipse1_t;
-        hit_info.point = ray.origin + ellipse1_t * ray.direction;
-        hit_info.normal = ellipse1.normal;
-        hit_info.color = vec3<f32>(1.0, 0.7, 0.2); // Orange/gold
-        hit_info.reflectivity = 0.6; // Moderately reflective
+        hit_info.t = ellipse1in_t;
+        hit_info.point = ray.origin + ellipse1in_t * ray.direction;
+        hit_info.normal = ellipse1in.normal;
+        hit_info.color = vec3<f32>(1.0, 0.7, 0.2);
+        hit_info.reflectivity = 0.0;
     }
     
     // Check ellipse 2 (vertical ring)
-    let ellipse2_t = ray_ellipse_intersect(ray, ellipse2);
-    if (ellipse2_t > 0.001 && ellipse2_t < hit_info.t) {
+    let ellipse1out_t = ray_ellipse_intersect(ray, ellipse1out);
+    if (ellipse1out_t > 0.001 && ellipse1out_t < hit_info.t) {
         hit_info.hit = true;
-        hit_info.t = ellipse2_t;
-        hit_info.point = ray.origin + ellipse2_t * ray.direction;
-        hit_info.normal = ellipse2.normal;
-        hit_info.color = vec3<f32>(0.8, 0.2, 0.8); // Purple/magenta
-        hit_info.reflectivity = 0.4; // Somewhat reflective
+        hit_info.t = ellipse1out_t;
+        hit_info.point = ray.origin + ellipse1out_t * ray.direction;
+        hit_info.normal = ellipse1out.normal;
+        hit_info.color = vec3<f32>(0.7, 0.4, 0.0);
+        hit_info.reflectivity = 0.0;
+    }
+
+    let ellipse2in_t = ray_ellipse_intersect(ray, ellipse2in);
+    if (ellipse2in_t > 0.001 && ellipse2in_t < hit_info.t) {
+        hit_info.hit = true;
+        hit_info.t = ellipse2in_t;
+        hit_info.point = ray.origin + ellipse2in_t * ray.direction;
+        hit_info.normal = ellipse2in.normal;
+        hit_info.color = vec3<f32>(0.8, 0.2, 0.8);
+        hit_info.reflectivity = 0.0;
+    }
+    
+    // Check ellipse 2 (vertical ring)
+    let ellipse2out_t = ray_ellipse_intersect(ray, ellipse2out);
+    if (ellipse2out_t > 0.001 && ellipse2out_t < hit_info.t) {
+        hit_info.hit = true;
+        hit_info.t = ellipse2out_t;
+        hit_info.point = ray.origin + ellipse2out_t * ray.direction;
+        hit_info.normal = ellipse2out.normal;
+        hit_info.color = vec3<f32>(0.5, 0.0, 0.5);
+        hit_info.reflectivity = 0.0; 
     }
     
     // Check sphere 1 (mirror sphere)
-    let sphere1_t = ray_sphere_intersect(ray, sphere1);
-    if (sphere1_t > 0.001 && sphere1_t < hit_info.t) {
-        hit_info.hit = true;
-        hit_info.t = sphere1_t;
-        hit_info.point = ray.origin + sphere1_t * ray.direction;
-        hit_info.normal = normalize(hit_info.point - sphere1.center);
-        hit_info.color = vec3<f32>(0.9, 0.9, 0.9); // Almost white for mirror
-        hit_info.reflectivity = 0.9; // Highly reflective
-    }
+    // let sphere1_t = ray_sphere_intersect(ray, sphere1);
+    // if (sphere1_t > 0.001 && sphere1_t < hit_info.t) {
+    //     hit_info.hit = true;
+    //     hit_info.t = sphere1_t;
+    //     hit_info.point = ray.origin + sphere1_t * ray.direction;
+    //     hit_info.normal = normalize(hit_info.point - sphere1.center);
+    //     hit_info.color = vec3<f32>(0.9, 0.9, 0.9); // Almost white for mirror
+    //     hit_info.reflectivity = 0.9; // Highly reflective
+    // }
     
-    // Check sphere 2 (partially reflective)
-    let sphere2_t = ray_sphere_intersect(ray, sphere2);
-    if (sphere2_t > 0.001 && sphere2_t < hit_info.t) {
-        hit_info.hit = true;
-        hit_info.t = sphere2_t;
-        hit_info.point = ray.origin + sphere2_t * ray.direction;
-        hit_info.normal = normalize(hit_info.point - sphere2.center);
-        hit_info.color = vec3<f32>(0.3, 0.3, 1.0); // Blue
-        hit_info.reflectivity = 0.3; // Somewhat reflective
-    }
+    // // Check sphere 2 (partially reflective)
+    // let sphere2_t = ray_sphere_intersect(ray, sphere2);
+    // if (sphere2_t > 0.001 && sphere2_t < hit_info.t) {
+    //     hit_info.hit = true;
+    //     hit_info.t = sphere2_t;
+    //     hit_info.point = ray.origin + sphere2_t * ray.direction;
+    //     hit_info.normal = normalize(hit_info.point - sphere2.center);
+    //     hit_info.color = vec3<f32>(0.3, 0.3, 1.0); // Blue
+    //     hit_info.reflectivity = 0.3; // Somewhat reflective
+    // }
     
-    // Check sphere 3 (non-reflective)
-    let sphere3_t = ray_sphere_intersect(ray, sphere3);
-    if (sphere3_t > 0.001 && sphere3_t < hit_info.t) {
-        hit_info.hit = true;
-        hit_info.t = sphere3_t;
-        hit_info.point = ray.origin + sphere3_t * ray.direction;
-        hit_info.normal = normalize(hit_info.point - sphere3.center);
-        hit_info.color = vec3<f32>(0.3, 1.0, 0.3); // Green
-        hit_info.reflectivity = 0.05; // Almost no reflection
-    }
+    // // Check sphere 3 (non-reflective)
+    // let sphere3_t = ray_sphere_intersect(ray, sphere3);
+    // if (sphere3_t > 0.001 && sphere3_t < hit_info.t) {
+    //     hit_info.hit = true;
+    //     hit_info.t = sphere3_t;
+    //     hit_info.point = ray.origin + sphere3_t * ray.direction;
+    //     hit_info.normal = normalize(hit_info.point - sphere3.center);
+    //     hit_info.color = vec3<f32>(0.3, 1.0, 0.3); // Green
+    //     hit_info.reflectivity = 0.05; // Almost no reflection
+    // }
     
     return hit_info;
 }
