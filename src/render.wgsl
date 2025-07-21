@@ -3,15 +3,58 @@
 struct Uniforms {
     resolution: vec2<f32>,
     time: f32,
-    _padding: f32,
+    scene_id: u32,
     camera_pos: vec3<f32>,
     _padding2: f32,
-    camera_dir: vec3<f32>,
-    _padding3: f32,
+    // camera_dir: vec3<f32>,
+    // _padding3: f32,
 }
+
+struct Sphere {
+    center: vec3<f32>,
+    radius: f32,
+    color: vec3<f32>,
+    reflectivity: f32,
+}
+
+struct Plane {
+    point: vec3<f32>,
+    _padding1: f32,
+    normal: vec3<f32>,
+    _padding2: f32,
+    color: vec3<f32>,
+    reflectivity: f32,
+}
+
+struct Ellipse {
+    center: vec3<f32>,
+    _padding1: f32,
+    normal: vec3<f32>,
+    _padding2: f32,
+    radius_a: f32,
+    radius_b: f32,
+    inner_radius_a: f32,
+    inner_radius_b: f32,
+    color: vec3<f32>,
+    reflectivity: f32,
+}
+
+struct SceneData {
+    sphere_count: u32,
+    plane_count: u32,
+    ellipse_count: u32,
+    _padding: u32,
+    spheres: array<Sphere, 8>,
+    planes: array<Plane, 4>,
+    ellipses: array<Ellipse, 8>,
+}
+
 
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
+
+@group(0) @binding(1)
+var<uniform> scene: SceneData;
 
 struct VertexOutput {
     @builtin(position) position : vec4<f32>,
@@ -38,10 +81,6 @@ struct Ray {
     direction: vec3<f32>,
 }
 
-struct Sphere {
-    center: vec3<f32>,
-    radius: f32,
-}
 fn ray_sphere_intersect(ray: Ray, sphere: Sphere) -> f32 {
     let oc = ray.origin - sphere.center;
     let a = dot(ray.direction, ray.direction);
@@ -56,10 +95,6 @@ fn ray_sphere_intersect(ray: Ray, sphere: Sphere) -> f32 {
     return (-b - sqrt(discriminant)) / (2.0 * a);
 }
 
-struct Plane {
-    point: vec3<f32>,
-    normal: vec3<f32>,
-}
 fn ray_plane_intersect(ray: Ray, plane: Plane) -> f32 {
     let denom = dot(plane.normal, ray.direction);
     if (abs(denom) < 1e-6) {
@@ -72,18 +107,9 @@ fn ray_plane_intersect(ray: Ray, plane: Plane) -> f32 {
     return t; // Return the distance to the intersection point
 }
 
-struct Ellipse {
-    center: vec3<f32>,
-    normal: vec3<f32>,        // Normal to the ellipse plane
-    radius_a: f32,            // Radius in first axis
-    radius_b: f32,            // Radius in second axis
-    inner_radius_a: f32,      // Inner radius in first axis (for ring)
-    inner_radius_b: f32,      // Inner radius in second axis (for ring)
-}
-
 fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
     // First, intersect with the plane containing the ellipse
-    let plane = Plane(ellipse.center, ellipse.normal);
+    let plane = Plane(ellipse.center, 0.0, ellipse.normal, 0.0, ellipse.color, ellipse.reflectivity);
     let t = ray_plane_intersect(ray, plane);
     
     if (t < 0.0) {
@@ -133,7 +159,6 @@ fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
 
 //////////////////////////////////////////
 
-// Structure to hold intersection information
 struct HitInfo {
     hit: bool,
     t: f32,
@@ -143,161 +168,68 @@ struct HitInfo {
     reflectivity: f32,
 }
 
-// Function to trace a ray and return hit information
 fn trace_ray(ray: Ray) -> HitInfo {
     var hit_info: HitInfo;
     hit_info.hit = false;
     hit_info.t = 1000.0;
-    
-    // // Objects positioned nicely
-    let ground_plane = Plane(vec3<f32>(0.0, -2.0, 0.0), vec3<f32>(0.0, 1.0, 0.0));
-    // let sphere1 = Sphere(vec3<f32>(-1.5, -1.0, -4.0), 1.0);  // Left sphere (mirror)
-    // let sphere2 = Sphere(vec3<f32>(1.0, -1.0, -3.0), 1.0);   // Right sphere (less reflective)
-    // let sphere3 = Sphere(vec3<f32>(0.0, 0.5, -5.0), 0.8);    // Floating sphere (non-reflective)
 
-    let e_a = 2.0;
-    let e_b = 2.5;
-    let rim_thickness = 0.2;
-    
-    let ellipse1out = Ellipse(
-        vec3<f32>(0.0, 1.8, -4.0),
-        vec3<f32>(0.0, -0.5, 1.0),
-        e_a,
-        e_b,
-        e_a - rim_thickness,
-        e_b - rim_thickness,
-    );
-    let ellipse1in = Ellipse(
-        ellipse1out.center,
-        ellipse1out.normal,
-        ellipse1out.inner_radius_a,  
-        ellipse1out.inner_radius_b,
-        0.0,
-        0.0,
-    );
-    
-    let ellipse2out = Ellipse(
-        vec3<f32>(2.5, 0.0, -5.0),
-        vec3<f32>(1.0, 0.0, 0.0),
-        e_a,
-        e_b,
-        e_a - rim_thickness,
-        e_b - rim_thickness,
-    );
-    let ellipse2in = Ellipse(
-        ellipse2out.center,
-        ellipse2out.normal,
-        ellipse2out.inner_radius_a,  
-        ellipse2out.inner_radius_b,
-        0.0,
-        0.0,
-    );
-    
-    // Check plane
-    let plane_t = ray_plane_intersect(ray, ground_plane);
-    if (plane_t > 0.001 && plane_t < hit_info.t) {
-        hit_info.hit = true;
-        hit_info.t = plane_t;
-        hit_info.point = ray.origin + plane_t * ray.direction;
-        hit_info.normal = ground_plane.normal;
-        
-        // Checkerboard pattern
-        let world_pos = hit_info.point;
-        let checker_scale = 1.0; // Size of each checker square
-        
-        // Use a more robust method that works with negative coordinates
-        let checker_x = floor(world_pos.x / checker_scale + 0.5);
-        let checker_z = floor(world_pos.z / checker_scale + 0.5);
-        
-        // Use bitwise AND equivalent for better cross-platform compatibility
-        let sum = checker_x + checker_z;
-        let checker_pattern = abs(sum - 2.0 * floor(sum * 0.5));
-        
-        // Alternate between two colors
-        if (checker_pattern < 0.5) {
-            hit_info.color = vec3<f32>(0.5, 0.5, 0.5); // Light gray
-        } else {
-            hit_info.color = vec3<f32>(0.05, 0.05, 0.05); // Dark gray
+    for (var i: u32 = 0u; i < scene.plane_count; i++) {
+        let plane = scene.planes[i];
+        let t = ray_plane_intersect(ray, plane);
+
+        if (t > 0.001 && t < hit_info.t) {
+            hit_info.hit = true;
+            hit_info.t = t;
+            hit_info.point = ray.origin + t * ray.direction;
+            hit_info.normal = plane.normal;
+            hit_info.color = plane.color;
+            hit_info.reflectivity = plane.reflectivity;
+
+
+            // Checker
+            let world_pos = hit_info.point;
+            let checker_scale = 1.0;
+            let checker_x = floor(world_pos.x / checker_scale + 0.5);
+            let checker_z = floor(world_pos.z / checker_scale + 0.5);
+            let sum = checker_x + checker_z;
+            let checker_pattern = abs(sum - 2.0 * floor(sum * 0.5));
+
+            if (checker_pattern < 0.5) {
+                hit_info.color = vec3<f32>(0.2, 0.2, 0.2);
+            } else {
+                hit_info.color = vec3<f32>(0.05, 0.05, 0.05);
+            }
         }
-        
-        hit_info.reflectivity = 0.05; // Slightly reflective ground
-    }
-    
-    // Check ellipse 1 (horizontal ring)
-    let ellipse1in_t = ray_ellipse_intersect(ray, ellipse1in);
-    if (ellipse1in_t > 0.001 && ellipse1in_t < hit_info.t) {
-        hit_info.hit = true;
-        hit_info.t = ellipse1in_t;
-        hit_info.point = ray.origin + ellipse1in_t * ray.direction;
-        hit_info.normal = ellipse1in.normal;
-        hit_info.color = vec3<f32>(1.0, 0.7, 0.2);
-        hit_info.reflectivity = 0.0;
-    }
-    
-    // Check ellipse 2 (vertical ring)
-    let ellipse1out_t = ray_ellipse_intersect(ray, ellipse1out);
-    if (ellipse1out_t > 0.001 && ellipse1out_t < hit_info.t) {
-        hit_info.hit = true;
-        hit_info.t = ellipse1out_t;
-        hit_info.point = ray.origin + ellipse1out_t * ray.direction;
-        hit_info.normal = ellipse1out.normal;
-        hit_info.color = vec3<f32>(0.7, 0.4, 0.0);
-        hit_info.reflectivity = 0.0;
+
     }
 
-    let ellipse2in_t = ray_ellipse_intersect(ray, ellipse2in);
-    if (ellipse2in_t > 0.001 && ellipse2in_t < hit_info.t) {
-        hit_info.hit = true;
-        hit_info.t = ellipse2in_t;
-        hit_info.point = ray.origin + ellipse2in_t * ray.direction;
-        hit_info.normal = ellipse2in.normal;
-        hit_info.color = vec3<f32>(0.8, 0.2, 0.8);
-        hit_info.reflectivity = 0.0;
+    for (var i: u32 = 0u; i < scene.sphere_count; i++) {
+        let sphere = scene.spheres[i];
+        let t = ray_sphere_intersect(ray, sphere);
+        
+        if (t > 0.001 && t < hit_info.t) {
+            hit_info.hit = true;
+            hit_info.t = t;
+            hit_info.point = ray.origin + t * ray.direction;
+            hit_info.normal = normalize(hit_info.point - sphere.center);
+            hit_info.color = sphere.color;
+            hit_info.reflectivity = sphere.reflectivity;
+        }
     }
     
-    // Check ellipse 2 (vertical ring)
-    let ellipse2out_t = ray_ellipse_intersect(ray, ellipse2out);
-    if (ellipse2out_t > 0.001 && ellipse2out_t < hit_info.t) {
-        hit_info.hit = true;
-        hit_info.t = ellipse2out_t;
-        hit_info.point = ray.origin + ellipse2out_t * ray.direction;
-        hit_info.normal = ellipse2out.normal;
-        hit_info.color = vec3<f32>(0.5, 0.0, 0.5);
-        hit_info.reflectivity = 0.0; 
+    for (var i: u32 = 0u; i < scene.ellipse_count; i++) {
+        let ellipse = scene.ellipses[i];
+        let t = ray_ellipse_intersect(ray, ellipse);
+        
+        if (t > 0.001 && t < hit_info.t) {
+            hit_info.hit = true;
+            hit_info.t = t;
+            hit_info.point = ray.origin + t * ray.direction;
+            hit_info.normal = ellipse.normal;
+            hit_info.color = ellipse.color;
+            hit_info.reflectivity = ellipse.reflectivity;
+        }
     }
-    
-    // Check sphere 1 (mirror sphere)
-    // let sphere1_t = ray_sphere_intersect(ray, sphere1);
-    // if (sphere1_t > 0.001 && sphere1_t < hit_info.t) {
-    //     hit_info.hit = true;
-    //     hit_info.t = sphere1_t;
-    //     hit_info.point = ray.origin + sphere1_t * ray.direction;
-    //     hit_info.normal = normalize(hit_info.point - sphere1.center);
-    //     hit_info.color = vec3<f32>(0.9, 0.9, 0.9); // Almost white for mirror
-    //     hit_info.reflectivity = 0.9; // Highly reflective
-    // }
-    
-    // // Check sphere 2 (partially reflective)
-    // let sphere2_t = ray_sphere_intersect(ray, sphere2);
-    // if (sphere2_t > 0.001 && sphere2_t < hit_info.t) {
-    //     hit_info.hit = true;
-    //     hit_info.t = sphere2_t;
-    //     hit_info.point = ray.origin + sphere2_t * ray.direction;
-    //     hit_info.normal = normalize(hit_info.point - sphere2.center);
-    //     hit_info.color = vec3<f32>(0.3, 0.3, 1.0); // Blue
-    //     hit_info.reflectivity = 0.3; // Somewhat reflective
-    // }
-    
-    // // Check sphere 3 (non-reflective)
-    // let sphere3_t = ray_sphere_intersect(ray, sphere3);
-    // if (sphere3_t > 0.001 && sphere3_t < hit_info.t) {
-    //     hit_info.hit = true;
-    //     hit_info.t = sphere3_t;
-    //     hit_info.point = ray.origin + sphere3_t * ray.direction;
-    //     hit_info.normal = normalize(hit_info.point - sphere3.center);
-    //     hit_info.color = vec3<f32>(0.3, 1.0, 0.3); // Green
-    //     hit_info.reflectivity = 0.05; // Almost no reflection
-    // }
     
     return hit_info;
 }

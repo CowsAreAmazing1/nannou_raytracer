@@ -3,12 +3,113 @@
 use nannou::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
+
+fn main() {
+    nannou::app(model).update(update).run();
+}
+
+
+
+// Scene Objects
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+struct Sphere {
+    center: [f32; 3],
+    radius: f32,
+    color: [f32; 3],
+    _padding: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+struct Plane {
+    point: [f32; 3],
+    _padding1: f32,
+    normal: [f32; 3],
+    _padding2: f32,
+    color: [f32; 3],
+    _padding: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+struct Ellipse {
+    center: [f32; 3],
+    _padding1: f32,
+    normal: [f32; 3],
+    _padding2: f32,
+    radius_a: f32,
+    radius_b: f32,
+    inner_radius_a: f32,
+    inner_radius_b: f32,
+    color: [f32; 3],
+    _padding: f32,
+}
+
+impl Default for Sphere {
+    fn default() -> Self {
+        Self {
+            center: [0.0; 3],
+            radius: 1.0,
+            color: [0.0; 3],
+            _padding: 0.0,
+        }
+    }
+}
+
+impl Default for Plane {
+    fn default() -> Self {
+        Self {
+            point: [0.0; 3],
+            _padding1: 0.0,
+            normal: [0.0, 1.0, 0.0],
+            _padding2: 0.0,
+            color: [0.0; 3],
+            _padding: 0.0,
+        }
+    }
+}
+
+impl Default for Ellipse {
+    fn default() -> Self {
+        Self {
+            center: [0.0; 3],
+            _padding1: 0.0,
+            normal: [0.0, 1.0, 0.0],
+            _padding2: 0.0,
+            radius_a: 0.0,
+            radius_b: 0.0,
+            inner_radius_a: 0.0,
+            inner_radius_b: 0.0,
+            color: [0.0; 3],
+            _padding: 0.0,
+        }
+    }
+}
+
+
+const MAX_SPHERES: usize = 8;
+const MAX_PLANES: usize = 4;
+const MAX_ELLIPSES: usize = 8;
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+struct SceneData {
+    sphere_count: u32,
+    plane_count: u32,
+    ellipse_count: u32,
+    _padding: u32,
+    spheres: [Sphere; MAX_SPHERES],
+    planes: [Plane; MAX_PLANES],
+    ellipses: [Ellipse; MAX_ELLIPSES],
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct Uniforms {
     resolution: [f32; 2],
     time: f32,
-    _padding: f32,
+    scene_id: u32,
     camera_pos: [f32; 3],
     _padding2: f32,
     camera_dir: [f32; 3],
@@ -19,32 +120,165 @@ struct Uniforms {
 
 
 
-fn main() {
-    nannou::app(model).run();
-}
-
-
 struct Model {
     #[allow(dead_code)]
     window_id: WindowId,
     state: GpuState,
+    current_scene: u32,
+    scenes: Vec<SceneData>,
 }
 
 struct GpuState {
     render_pipeline: wgpu::RenderPipeline,
 
     uniform_buffer: wgpu::Buffer,
+    scene_buffer: wgpu::Buffer,
+
     uniform_bind_group: wgpu::BindGroup,
+}
+
+impl Model {
+    fn create_scenes() -> Vec<SceneData> {
+        let mut scenes = Vec::new();
+
+        let mut scene1 = SceneData {
+            sphere_count: 0,
+            plane_count: 1,
+            ellipse_count: 4,
+            _padding: 0,
+            spheres: [Sphere::default(); MAX_SPHERES],
+            planes: [Plane::default(); MAX_PLANES],
+            ellipses: [Ellipse::default(); MAX_ELLIPSES],
+        };
+
+        scene1.planes[0] = Plane {
+            point: [0.0, -2.0, 0.0],
+            _padding1: 0.0,
+            normal: [0.0, 1.0, 0.0],
+            _padding2: 0.0,
+            color: [0.2, 0.2, 0.2],
+            _padding: 0.0,
+        };
+
+        let e_a = 2.0;
+        let e_b = 2.5;
+        let rim_thickness = 0.2;
+
+        scene1.ellipses[0] = Ellipse {
+            center: [0.0, 1.8, -4.0],
+            _padding1: 0.0,
+            normal: [0.0, -0.5, 1.0],
+            _padding2: 0.0,
+            radius_a: e_a,
+            radius_b: e_b,
+            inner_radius_a: e_a - rim_thickness,
+            inner_radius_b: e_b - rim_thickness,
+            color: [0.7, 0.4, 0.0],
+            _padding: 0.0,
+        };
+        scene1.ellipses[1] = Ellipse {
+            center: scene1.ellipses[0].center,
+            _padding1: 0.0,
+            normal: scene1.ellipses[0].normal,
+            _padding2: 0.0,
+            radius_a: scene1.ellipses[0].inner_radius_a,
+            radius_b: scene1.ellipses[0].inner_radius_b,
+            inner_radius_a: 0.0,
+            inner_radius_b: 0.0,
+            color: [
+                scene1.ellipses[0].color[0] - 0.2,
+                scene1.ellipses[0].color[1] - 0.2,
+                scene1.ellipses[0].color[2] - 0.2,
+            ],
+            _padding: 0.0,
+        };
+
+        scenes.push(scene1);
+        
+        // Scene 2: Sphere showcase
+        let mut scene2 = SceneData {
+            sphere_count: 3,
+            plane_count: 1,
+            ellipse_count: 0,
+            _padding: 0,
+            spheres: [Sphere::default(); MAX_SPHERES],
+            planes: [Plane::default(); MAX_PLANES],
+            ellipses: [Ellipse::default(); MAX_ELLIPSES],
+        };
+        
+        scene2.planes[0] = scene1.planes[0]; // Same ground
+        
+        scene2.spheres[0] = Sphere {
+            center: [-1.5, -1.0, -4.0],
+            radius: 1.0,
+            color: [0.9, 0.9, 0.9],
+            _padding: 0.0,
+        };
+        
+        scene2.spheres[1] = Sphere {
+            center: [1.0, -1.0, -3.0],
+            radius: 1.0,
+            color: [0.3, 0.3, 1.0],
+            _padding: 0.0,
+        };
+        
+        scene2.spheres[2] = Sphere {
+            center: [0.0, 0.5, -5.0],
+            radius: 0.8,
+            color: [0.3, 1.0, 0.3],
+            _padding: 0.0,
+        };
+        
+        scenes.push(scene2);
+
+        scenes
+    }
+
+    fn switch_scene(&mut self, scene_id: u32) {
+        if scene_id < self.scenes.len() as u32 {
+            self.current_scene = scene_id;
+        }
+    }
+
+    fn animate_scene(&mut self, time: f32) {
+        match self.current_scene {
+            0 => {
+                // Animate ellipse scene
+                if self.scenes[0].ellipse_count > 0 {
+                    let rotation = time * 0.5;
+                    self.scenes[0].ellipses[0].normal = [
+                        rotation.sin() * 0.5,
+                        -0.5,
+                        rotation.cos(),
+                    ];
+                    self.scenes[0].ellipses[1].normal = [
+                        rotation.sin() * 0.5,
+                        -0.5,
+                        rotation.cos(),
+                    ];
+                }
+            }
+            1 => {
+                // Animate sphere scene
+                if self.scenes[1].sphere_count > 2 {
+                    let bounce = (time * 2.0).sin() * 0.5;
+                    self.scenes[1].spheres[2].center[1] = 0.5 + bounce;
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 
 
 
 fn model(app: &App) -> Model {
-    let window_id = app.new_window().view(view).build().unwrap();
+    let window_id = app.new_window().view(view).key_pressed(key_pressed).build().unwrap();
     let window = app.window(window_id).unwrap();
-
     let device = window.device();
+
+    let scenes = Model::create_scenes();
 
     // Create uniform buffer
     let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -54,29 +288,54 @@ fn model(app: &App) -> Model {
         mapped_at_creation: false,
     });
 
+    let scene_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Scene Buffer"),
+        size: std::mem::size_of::<SceneData>() as u64,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
     // Create bind group layout
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Uniform Bind Group Layout"),
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
             },
-            count: None,
-        }],
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
     });
 
     // Create bind group
     let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Uniform Bind Group"),
         layout: &bind_group_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: uniform_buffer.as_entire_binding(),
-        }],
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: scene_buffer.as_entire_binding(),
+            },
+        ],
     });
 
     let render_shader = include_str!("render.wgsl");
@@ -126,10 +385,33 @@ fn model(app: &App) -> Model {
         state: GpuState {
             render_pipeline,
             uniform_buffer,
+            scene_buffer,
             uniform_bind_group,
-        }
+        },
+        current_scene: 0,
+        scenes,
     }
 }
+
+fn key_pressed(_app: &App, model: &mut Model, key: Key) {
+    match key {
+        Key::Key1 => {
+            model.switch_scene(0);
+            println!("Switched to Scene 1: Ellipse Showcase");
+        },
+        Key::Key2 => {
+            model.switch_scene(1);
+            println!("Switched to Scene 2: Sphere Showcase");
+        },
+        _ => {}
+    }
+}
+
+fn update(app: &App, model: &mut Model, _update: Update) {
+    // Animate the current scene
+    model.animate_scene(app.time);
+}
+
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let window = app.window(model.window_id).unwrap();
@@ -161,14 +443,17 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let uniforms = Uniforms {
         resolution: [w as f32, h as f32],
         time: app.time,
-        _padding: 0.0,
+        scene_id: model.current_scene,
         camera_pos,
         _padding2: 0.0,
-        camera_dir: [0.0, 0.0, -1.0], // Not used in shader anymore
+        camera_dir: [0.0, 0.0, -1.0],
         _padding3: 0.0,
     };
 
+    let scene_data = model.scenes[model.current_scene as usize];
+
     queue.write_buffer(&model.state.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+    queue.write_buffer(&model.state.scene_buffer, 0, bytemuck::cast_slice(&[scene_data]));
 
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Render Encoder"),
