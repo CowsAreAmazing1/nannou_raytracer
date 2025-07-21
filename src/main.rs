@@ -136,15 +136,35 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
     let queue = window.queue();
 
+    // Mouse-controlled orbital camera
+    let mouse = app.mouse.position();
+    let window_size = window.inner_size_points();
+    
+    // Normalize mouse position to -1.0 to 1.0 range
+    let mouse_x = (mouse.x / (window_size.0 * 0.5)) as f32;
+    let mouse_y = (mouse.y / (window_size.1 * 0.5)) as f32;
+    
+    // Calculate orbital angles from mouse position
+    let horizontal_angle = mouse_x * std::f32::consts::PI; // Full rotation left/right
+    let vertical_angle = (mouse_y * 0.5 + 0.3) * std::f32::consts::PI * 0.3; // Limited vertical range
+    
+    // Calculate camera position in spherical coordinates
+    let camera_radius = 8.0;
+    let camera_pos = [
+        camera_radius * horizontal_angle.cos() * vertical_angle.cos(),
+        camera_radius * vertical_angle.sin() + 1.0, // Offset up slightly
+        camera_radius * horizontal_angle.sin() * vertical_angle.cos(),
+    ];
+
     // Update uniforms
     let (w, h) = window.inner_size_pixels();
     let uniforms = Uniforms {
         resolution: [w as f32, h as f32],
         time: app.time,
         _padding: 0.0,
-        camera_pos: [0.0, 0.0, 0.0],
+        camera_pos,
         _padding2: 0.0,
-        camera_dir: [0.0, 0.0, -1.0],
+        camera_dir: [0.0, 0.0, -1.0], // Not used in shader anymore
         _padding3: 0.0,
     };
 
