@@ -2,6 +2,7 @@
 
 use nannou::prelude::*;
 use bytemuck::{Pod, Zeroable};
+use std::collections::HashSet;
 
 
 fn main() {
@@ -90,20 +91,62 @@ struct Uniforms {
     scene_id: u32,
     camera_pos: [f32; 3],
     _padding2: f32,
-    // camera_dir: [f32; 3],
-    // _padding3: f32,
+    camera_dir: [f32; 3],
+    _padding3: f32,
+}
+
+struct Camera {
+    position: Vec3,
+    yaw: f32,
+    pitch: f32,
+    speed: f32,
+    sensitivity: f32,
+}
+
+impl Camera {
+    fn new() -> Self {
+        Self {
+            position: vec3(0.0, 2.0, 0.0),
+            yaw: 0.0,
+            pitch: 0.0,
+            speed: 5.0,
+            sensitivity: 0.003,
+        }
+    }
+
+    fn forward(&self) -> Vec3 {
+        vec3(
+            self.yaw.cos() * self.pitch.cos(),
+            self.pitch.sin(),
+            self.yaw.sin() * self.pitch.cos(),
+        )
+    }
+
+    fn right(&self) -> Vec3 {
+        vec3(
+            (self.yaw - PI/2.0).cos(),
+            0.0,
+            (self.yaw - PI/2.0).sin(),
+        )
+    }
+
+    fn up(&self) -> Vec3 {
+        vec3(0.0, 1.0, 0.0)
+    }
 }
 
 
 
 
-
 struct Model {
-    #[allow(dead_code)]
     window_id: WindowId,
     state: GpuState,
     current_scene: u32,
     scenes: Vec<SceneData>,
+    camera: Camera,
+    keys_pressed: HashSet<Key>,
+    mouse_locked: bool,
+    last_mouse_pos: Option<Vec2>,
 }
 
 struct GpuState {
@@ -208,7 +251,13 @@ impl Model {
 
 
 fn model(app: &App) -> Model {
-    let window_id = app.new_window().view(view).key_pressed(key_pressed).build().unwrap();
+    let window_id = app.new_window()
+        .view(view)
+        .key_pressed(key_pressed)
+        .key_released(key_released)
+        .mouse_pressed(mouse_pressed)
+        .mouse_moved(mouse_moved)
+        .build().unwrap();
     let window = app.window(window_id).unwrap();
     let device = window.device();
 
@@ -324,21 +373,92 @@ fn model(app: &App) -> Model {
         },
         current_scene: 0,
         scenes,
+        camera: Camera::new(),
+        keys_pressed: HashSet::new(),
+        mouse_locked: false,
+        last_mouse_pos: None,
     }
 }
 
 fn key_pressed(_app: &App, model: &mut Model, key: Key) {
+    model.keys_pressed.insert(key);
+
     match key {
         Key::Key1 => {
             model.switch_scene(0);
             println!("Switched to Scene 1: Ellipse Showcase");
         },
+        Key::Tab => {
+            model.mouse_locked = !model.mouse_locked;
+            model.last_mouse_pos = None;
+            println!("Mouse lock: {}", if model.mouse_locked { "ON" } else { "OFF" });
+        }
         _ => {}
     }
 }
 
-fn update(app: &App, model: &mut Model, _update: Update) {
-    // Animate the current scene
+fn key_released(_app: &App, model: &mut Model, key: Key) {
+    model.keys_pressed.remove(&key);
+}
+
+fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) {
+    if !model.mouse_locked {
+        model.mouse_locked = true;
+        model.last_mouse_pos = None;
+
+        let window = app.window(model.window_id).unwrap();
+        let _ = window.set_cursor_grab(true);
+        window.set_cursor_visible(false);
+
+        println!("Mouse locked");
+    }
+}
+
+fn mouse_moved(_app: &App, model: &mut Model, pos: Point2) {
+    if model.mouse_locked {
+        // Update camera immediately when mouse moves
+        if let Some(last_pos) = model.last_mouse_pos {
+            let mouse_delta = vec2(pos.x, pos.y) - last_pos;
+            model.camera.yaw += mouse_delta.x * model.camera.sensitivity;
+            model.camera.pitch += mouse_delta.y * model.camera.sensitivity;
+            
+            model.camera.pitch = model.camera.pitch.clamp(-PI / 2.0 + 0.1, PI / 2.0 - 0.1);
+        }
+        model.last_mouse_pos = Some(vec2(pos.x, pos.y));
+    }
+}
+
+fn update(app: &App, model: &mut Model, update: Update) {
+    // Remove mouse handling from here - it's now in mouse_moved
+    let dt = update.since_last.as_secs_f32();
+    
+    // Only handle WASD movement in update_camera
+    let mut movement = Vec3::ZERO;
+    
+    if model.keys_pressed.contains(&Key::W) {
+        movement += model.camera.forward();
+    }
+    if model.keys_pressed.contains(&Key::A) {
+        movement += model.camera.right();
+    }
+    if model.keys_pressed.contains(&Key::S) {
+        movement -= model.camera.forward();
+    }
+    if model.keys_pressed.contains(&Key::D) {
+        movement -= model.camera.right();
+    }
+    if model.keys_pressed.contains(&Key::Space) {
+        movement += model.camera.up();
+    }
+    if model.keys_pressed.contains(&Key::LShift) {
+        movement -= model.camera.up();
+    }
+    
+    if movement.length() > 0.0 {
+        movement = movement.normalize() * model.camera.speed * dt;
+        model.camera.position += movement;
+    }
+    
     model.animate_scene(app.time);
 }
 
@@ -348,25 +468,14 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
     let queue = window.queue();
 
-    // Mouse-controlled orbital camera
-    let mouse = app.mouse.position();
-    let window_size = window.inner_size_points();
-    
-    // Normalize mouse position to -1.0 to 1.0 range
-    let mouse_x = (mouse.x / (window_size.0 * 0.5)) as f32;
-    let mouse_y = (mouse.y / (window_size.1 * 0.5)) as f32;
-    
-    // Calculate orbital angles from mouse position
-    let horizontal_angle = mouse_x * std::f32::consts::PI; // Full rotation left/right
-    let vertical_angle = (mouse_y * 0.5 + 0.3) * std::f32::consts::PI * 0.3; // Limited vertical range
-    
-    // Calculate camera position in spherical coordinates
-    let camera_radius = 8.0;
     let camera_pos = [
-        camera_radius * horizontal_angle.cos() * vertical_angle.cos(),
-        camera_radius * vertical_angle.sin() + 1.0, // Offset up slightly
-        camera_radius * horizontal_angle.sin() * vertical_angle.cos(),
+        model.camera.position.x,
+        model.camera.position.y,
+        model.camera.position.z,
     ];
+
+    let camera_forward = model.camera.forward();
+    let camera_dir = [camera_forward.x, camera_forward.y, camera_forward.z];
 
     // Update uniforms
     let (w, h) = window.inner_size_pixels();
@@ -376,8 +485,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
         scene_id: model.current_scene,
         camera_pos,
         _padding2: 0.0,
-        // camera_dir: [0.0, 0.0, -1.0],
-        // _padding3: 0.0,
+        camera_dir,
+        _padding3: 0.0,
     };
 
     let scene_data = model.scenes[model.current_scene as usize];

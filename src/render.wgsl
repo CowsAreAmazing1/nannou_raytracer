@@ -6,8 +6,8 @@ struct Uniforms {
     scene_id: u32,
     camera_pos: vec3<f32>,
     _padding2: f32,
-    // camera_dir: vec3<f32>,
-    // _padding3: f32,
+    camera_dir: vec3<f32>,
+    _padding3: f32,
 }
 
 struct Plane {
@@ -208,40 +208,34 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Convert screen coordinates to ray direction
     let uv = (in.uv * 2.0 - 1.0) * vec2<f32>(uniforms.resolution.x / uniforms.resolution.y, 1.0);
     
-    // Use camera position from uniforms (controlled by mouse in Rust)
     let ray_origin = uniforms.camera_pos;
     
-    // Look-at target (center of our scene)
-    let camera_target = vec3<f32>(0.0, -0.5, -4.0);
+    // Use the camera_dir from uniforms
+    let camera_forward = normalize(uniforms.camera_dir);
     
     // Create camera coordinate system
-    let camera_forward = normalize(camera_target - ray_origin);
     let world_up = vec3<f32>(0.0, 1.0, 0.0);
     let camera_right = normalize(cross(camera_forward, world_up));
     let camera_up = cross(camera_right, camera_forward);
     
-    // Calculate ray direction using camera coordinate system
+    // Calculate ray direction
+    let fov = 0.8;
     let ray_direction = normalize(
         camera_forward + 
-        uv.x * camera_right * 0.8 +  // FOV control (smaller = more zoomed in)
-        uv.y * camera_up * 0.8
+        uv.x * camera_right * fov +
+        uv.y * camera_up * fov
     );
     
     let primary_ray = Ray(ray_origin, ray_direction);
     
-    // Trace primary ray
-    let hit = trace_ray(primary_ray);
+    // Trace the ray
+    let hit_info = trace_ray(primary_ray);
     
-    if (!hit.hit) {
-        // Background gradient
-        let gradient = uv.y * 0.5 + 0.5;
-        return vec4<f32>(0.1, 0.2, 0.3 + gradient * 0.3, 1.0);
+    var color = vec3<f32>(0.1, 0.2, 0.4); // Blue gradient background
+    
+    if (hit_info.hit) {
+        color = hit_info.color;
     }
     
-    // Calculate basic lighting
-    let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-    let diffuse = max(dot(hit.normal, light_dir), 0.1);
-    var final_color = hit.color * diffuse;
-    
-    return vec4<f32>(final_color, 1.0);
+    return vec4<f32>(color, 1.0);
 }
