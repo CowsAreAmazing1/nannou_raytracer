@@ -4,6 +4,9 @@ use nannou::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use std::collections::HashSet;
 
+mod scene;
+use scene::{SceneData, Plane, Ellipse, Portal, PortalPair};
+
 
 fn main() {
     nannou::app(model).update(update).run();
@@ -11,160 +14,6 @@ fn main() {
 
 
 
-// Scene Objects
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct Plane {
-    point: [f32; 3],
-    _padding1: f32,
-    normal: [f32; 3],
-    _padding2: f32,
-    color: [f32; 3],
-    _padding3: f32,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct Ellipse {
-    center: [f32; 3],
-    _padding1: f32,
-    normal: [f32; 3],
-    _padding2: f32,
-    radius_a: f32,
-    radius_b: f32,
-    border_thickness: f32,
-    _padding3: f32,
-    color: [f32; 3],
-    _padding4: f32,
-    border_color: [f32; 3],
-    _padding5: f32,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct Portal {
-    ellipse: Ellipse,
-    transformation_matrix: [f32; 16],
-    inverse_transformation_matrix: [f32; 16],
-}
-
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct PortalPair {
-    portal_a: Portal,
-    portal_b: Portal,
-}
-
-
-
-
-impl Default for Plane {
-    fn default() -> Self {
-        Self {
-            point: [0.0; 3],
-            _padding1: 0.0,
-            normal: [0.0, 1.0, 0.0],
-            _padding2: 0.0,
-            color: [0.0; 3],
-            _padding3: 0.0,
-        }
-    }
-}
-
-impl Default for Ellipse {
-    fn default() -> Self {
-        Self {
-            center: [0.0; 3],
-            _padding1: 0.0,
-            normal: [0.0, 1.0, 0.0],
-            _padding2: 0.0,
-            radius_a: 0.0,
-            radius_b: 0.0,
-            border_thickness: 0.0,
-            _padding3: 0.0,
-            color: [0.0; 3],
-            _padding4: 0.0,
-            border_color: [0.0; 3],
-            _padding5: 0.0,
-        }
-    }
-}
-
-// impl Default for Portal {
-//     fn default() -> Self {
-//         Self {
-//             ellipse: Ellipse::default(),
-//             affine: Affine3A::IDENTITY,
-//         }
-//     }
-// }
-
-// impl Default for PortalPair {
-//     fn default() -> Self {
-//         Self {
-//             portal_a: Portal::default(),
-//             portal_b: Portal::default(),
-//         }
-//     }
-// }
-
-
-const MAX_PLANES: usize = 4;
-const MAX_ELLIPSES: usize = 8;
-// const MAX_PORTAL_PAIRS: usize = 4;
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct SceneData {
-    plane_count: u32,
-    ellipse_count: u32,
-    // portal_pair_count: u32,
-    _padding1: u32,
-    _padding2: u32,
-    planes: [Plane; MAX_PLANES],
-    ellipses: [Ellipse; MAX_ELLIPSES],
-    // portal_pairs: [PortalPair; MAX_PORTAL_PAIRS],
-}
-
-impl Default for SceneData {
-    fn default() -> Self {
-        Self {
-            plane_count: 0,
-            ellipse_count: 0,
-            // portal_pair_count: 0,
-            _padding1: 0,
-            _padding2: 0,
-            planes: [Plane::default(); MAX_PLANES],
-            ellipses: [Ellipse::default(); MAX_ELLIPSES],
-            // portal_pairs: [PortalPair::default(); MAX_PORTAL_PAIRS],
-        }
-    }
-}
-
-impl SceneData {
-    fn new() -> Self {
-        Self::default()
-    }
-
-    fn add_plane(&mut self, plane: Plane){
-        if self.plane_count < MAX_PLANES as u32 {
-            self.planes[self.plane_count as usize] = plane;
-            self.plane_count += 1;
-        } else {
-            println!("Max plane count reached: {}", MAX_PLANES);
-        }
-    }
-
-    fn add_ellipse(&mut self, ellipse: Ellipse) {
-        if self.ellipse_count < MAX_ELLIPSES as u32 {
-            self.ellipses[self.ellipse_count as usize] = ellipse;
-            self.ellipse_count += 1;
-        } else {
-            println!("Max ellipse count reached: {}", MAX_ELLIPSES);
-        }
-    }
-}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -219,7 +68,14 @@ impl Camera {
 }
 
 
+struct GpuState {
+    render_pipeline: wgpu::RenderPipeline,
 
+    uniform_buffer: wgpu::Buffer,
+    scene_buffer: wgpu::Buffer,
+
+    uniform_bind_group: wgpu::BindGroup,
+}
 
 struct Model {
     window_id: WindowId,
@@ -232,14 +88,7 @@ struct Model {
     last_mouse_pos: Option<Vec2>,
 }
 
-struct GpuState {
-    render_pipeline: wgpu::RenderPipeline,
 
-    uniform_buffer: wgpu::Buffer,
-    scene_buffer: wgpu::Buffer,
-
-    uniform_bind_group: wgpu::BindGroup,
-}
 
 impl Model {
     fn create_scenes() -> Vec<SceneData> {
@@ -248,14 +97,11 @@ impl Model {
         let mut scene1 = SceneData::new();
             
         scene1.add_plane(
-            Plane {
-                point: [0.0, -2.0, 0.0],
-                _padding1: 0.0,
-                normal: [0.0, 1.0, 0.0],
-                _padding2: 0.0,
-                color: [0.2, 0.0, 0.0],
-                _padding3: 0.0,
-            }
+            Plane::new(
+                [0.0, -2.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.2, 0.0, 0.0],
+            )
         );
 
         let e_a = 0.4;
@@ -263,37 +109,27 @@ impl Model {
         let rim_thickness = 0.2;
 
         scene1.add_ellipse(
-            Ellipse {
-                center: [1.5, 1.0, -4.0],
-                _padding1: 0.0,
-                normal: [0.0, -0.5, 1.0],
-                _padding2: 0.0,
-                radius_a: e_a,
-                radius_b: e_b,
-                border_thickness: rim_thickness,
-                _padding3: 0.0,
-                color: [0.7, 0.4, 0.0],
-                _padding4: 0.0,
-                border_color: [0.0, 0.0, 0.0],
-                _padding5: 0.0,
-            }
+            Ellipse::new(
+                [1.5, 1.0, -4.0],
+                [0.0, -0.5, 1.0],
+                e_a,
+                e_b,
+                rim_thickness,
+                [0.7, 0.4, 0.0],
+                [0.0, 0.0, 0.0],
+            )
         );
 
         scene1.add_ellipse(
-            Ellipse {
-                center: [-1.5, 1.0, -4.0],
-                _padding1: 0.0,
-                normal: [0.0, -0.5, 1.0],
-                _padding2: 0.0,
-                radius_a: e_a,
-                radius_b: e_b,
-                border_thickness: rim_thickness,
-                _padding3: 0.0,
-                color: [0.0, 0.4, 0.7],
-                _padding4: 0.0,
-                border_color: [0.0, 0.0, 0.0],
-                _padding5: 0.0,
-            }
+            Ellipse::new(
+                [-1.5, 1.0, -4.0],
+                [0.0, -0.5, 1.0],
+                e_a,
+                e_b,
+                rim_thickness,
+                [0.0, 0.4, 0.7],
+                [0.0, 0.0, 0.0],
+            )
         );
 
         scenes.push(scene1);
