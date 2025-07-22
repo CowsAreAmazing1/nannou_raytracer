@@ -32,11 +32,32 @@ struct Ellipse {
     _padding2: f32,
     radius_a: f32,
     radius_b: f32,
-    inner_radius_a: f32,
-    inner_radius_b: f32,
-    color: [f32; 3],
+    border_thickness: f32,
     _padding3: f32,
+    color: [f32; 3],
+    _padding4: f32,
+    border_color: [f32; 3],
+    _padding5: f32,
 }
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+struct Portal {
+    ellipse: Ellipse,
+    transformation_matrix: [f32; 16],
+    inverse_transformation_matrix: [f32; 16],
+}
+
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+struct PortalPair {
+    portal_a: Portal,
+    portal_b: Portal,
+}
+
+
+
 
 impl Default for Plane {
     fn default() -> Self {
@@ -60,27 +81,89 @@ impl Default for Ellipse {
             _padding2: 0.0,
             radius_a: 0.0,
             radius_b: 0.0,
-            inner_radius_a: 0.0,
-            inner_radius_b: 0.0,
-            color: [0.0; 3],
+            border_thickness: 0.0,
             _padding3: 0.0,
+            color: [0.0; 3],
+            _padding4: 0.0,
+            border_color: [0.0; 3],
+            _padding5: 0.0,
         }
     }
 }
 
+// impl Default for Portal {
+//     fn default() -> Self {
+//         Self {
+//             ellipse: Ellipse::default(),
+//             affine: Affine3A::IDENTITY,
+//         }
+//     }
+// }
+
+// impl Default for PortalPair {
+//     fn default() -> Self {
+//         Self {
+//             portal_a: Portal::default(),
+//             portal_b: Portal::default(),
+//         }
+//     }
+// }
+
 
 const MAX_PLANES: usize = 4;
 const MAX_ELLIPSES: usize = 8;
+// const MAX_PORTAL_PAIRS: usize = 4;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct SceneData {
     plane_count: u32,
     ellipse_count: u32,
+    // portal_pair_count: u32,
     _padding1: u32,
     _padding2: u32,
     planes: [Plane; MAX_PLANES],
     ellipses: [Ellipse; MAX_ELLIPSES],
+    // portal_pairs: [PortalPair; MAX_PORTAL_PAIRS],
+}
+
+impl Default for SceneData {
+    fn default() -> Self {
+        Self {
+            plane_count: 0,
+            ellipse_count: 0,
+            // portal_pair_count: 0,
+            _padding1: 0,
+            _padding2: 0,
+            planes: [Plane::default(); MAX_PLANES],
+            ellipses: [Ellipse::default(); MAX_ELLIPSES],
+            // portal_pairs: [PortalPair::default(); MAX_PORTAL_PAIRS],
+        }
+    }
+}
+
+impl SceneData {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn add_plane(&mut self, plane: Plane){
+        if self.plane_count < MAX_PLANES as u32 {
+            self.planes[self.plane_count as usize] = plane;
+            self.plane_count += 1;
+        } else {
+            println!("Max plane count reached: {}", MAX_PLANES);
+        }
+    }
+
+    fn add_ellipse(&mut self, ellipse: Ellipse) {
+        if self.ellipse_count < MAX_ELLIPSES as u32 {
+            self.ellipses[self.ellipse_count as usize] = ellipse;
+            self.ellipse_count += 1;
+        } else {
+            println!("Max ellipse count reached: {}", MAX_ELLIPSES);
+        }
+    }
 }
 
 #[repr(C)]
@@ -106,8 +189,8 @@ struct Camera {
 impl Camera {
     fn new() -> Self {
         Self {
-            position: vec3(0.0, 2.0, 0.0),
-            yaw: 0.0,
+            position: vec3(0.0, 1.0, 0.0),
+            yaw: -PI/2.0,
             pitch: 0.0,
             speed: 5.0,
             sensitivity: 0.003,
@@ -162,56 +245,56 @@ impl Model {
     fn create_scenes() -> Vec<SceneData> {
         let mut scenes = Vec::new();
 
-        let mut scene1 = SceneData {
-            plane_count: 1,
-            ellipse_count: 4,
-            _padding1: 0,
-            _padding2: 0,
-            planes: [Plane::default(); MAX_PLANES],
-            ellipses: [Ellipse::default(); MAX_ELLIPSES],
-        };
+        let mut scene1 = SceneData::new();
+            
+        scene1.add_plane(
+            Plane {
+                point: [0.0, -2.0, 0.0],
+                _padding1: 0.0,
+                normal: [0.0, 1.0, 0.0],
+                _padding2: 0.0,
+                color: [0.2, 0.0, 0.0],
+                _padding3: 0.0,
+            }
+        );
 
-        scene1.planes[0] = Plane {
-            point: [0.0, -2.0, 0.0],
-            _padding1: 0.0,
-            normal: [0.0, 1.0, 0.0],
-            _padding2: 0.0,
-            color: [0.2, 0.0, 0.0],
-            _padding3: 0.0,
-        };
-
-        let e_a = 2.0;
-        let e_b = 2.5;
+        let e_a = 0.4;
+        let e_b = 1.0;
         let rim_thickness = 0.2;
 
-        scene1.ellipses[0] = Ellipse {
-            center: [0.0, 1.8, -4.0],
-            _padding1: 0.0,
-            normal: [0.0, -0.5, 1.0],
-            _padding2: 0.0,
-            radius_a: e_a,
-            radius_b: e_b,
-            inner_radius_a: e_a - rim_thickness,
-            inner_radius_b: e_b - rim_thickness,
-            color: [0.7, 0.4, 0.0],
-            _padding3: 0.0,
-        };
-        scene1.ellipses[1] = Ellipse {
-            center: scene1.ellipses[0].center,
-            _padding1: 0.0,
-            normal: scene1.ellipses[0].normal,
-            _padding2: 0.0,
-            radius_a: scene1.ellipses[0].inner_radius_a,
-            radius_b: scene1.ellipses[0].inner_radius_b,
-            inner_radius_a: 0.0,
-            inner_radius_b: 0.0,
-            color: [
-                scene1.ellipses[0].color[0] - 0.2,
-                scene1.ellipses[0].color[1] - 0.2,
-                scene1.ellipses[0].color[2] - 0.2,
-            ],
-            _padding3: 0.0,
-        };
+        scene1.add_ellipse(
+            Ellipse {
+                center: [1.5, 1.0, -4.0],
+                _padding1: 0.0,
+                normal: [0.0, -0.5, 1.0],
+                _padding2: 0.0,
+                radius_a: e_a,
+                radius_b: e_b,
+                border_thickness: rim_thickness,
+                _padding3: 0.0,
+                color: [0.7, 0.4, 0.0],
+                _padding4: 0.0,
+                border_color: [0.0, 0.0, 0.0],
+                _padding5: 0.0,
+            }
+        );
+
+        scene1.add_ellipse(
+            Ellipse {
+                center: [-1.5, 1.0, -4.0],
+                _padding1: 0.0,
+                normal: [0.0, -0.5, 1.0],
+                _padding2: 0.0,
+                radius_a: e_a,
+                radius_b: e_b,
+                border_thickness: rim_thickness,
+                _padding3: 0.0,
+                color: [0.0, 0.4, 0.7],
+                _padding4: 0.0,
+                border_color: [0.0, 0.0, 0.0],
+                _padding5: 0.0,
+            }
+        );
 
         scenes.push(scene1);
 
@@ -231,12 +314,7 @@ impl Model {
                 if self.scenes[0].ellipse_count > 0 {
                     let rotation = time * 0.5;
                     self.scenes[0].ellipses[0].normal = [
-                        rotation.sin() * 0.5,
-                        -0.5,
-                        rotation.cos(),
-                    ];
-                    self.scenes[0].ellipses[1].normal = [
-                        rotation.sin() * 0.5,
+                        rotation.sin(),
                         -0.5,
                         rotation.cos(),
                     ];

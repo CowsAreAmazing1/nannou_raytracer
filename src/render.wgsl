@@ -6,8 +6,8 @@ struct Uniforms {
     scene_id: u32,
     camera_pos: vec3<f32>,
     _padding2: f32,
-    camera_dir: vec3<f32>,
-    _padding3: f32,
+        camera_dir: vec3<f32>,
+        _padding3: f32,
 }
 
 struct Plane {
@@ -26,10 +26,12 @@ struct Ellipse {
     _padding2: f32,
     radius_a: f32,
     radius_b: f32,
-    inner_radius_a: f32,
-    inner_radius_b: f32,
-    color: vec3<f32>,
+    border_thickness: f32,
     _padding3: f32,
+    color: vec3<f32>,
+    _padding4: f32,
+    border_color: vec3<f32>,
+    _padding5: f32,
 }
 
 struct SceneData {
@@ -124,15 +126,35 @@ fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
         return -1.0; // Outside outer ellipse
     }
     
-    // Check if point is outside inner ellipse (for ring shape)
-    let inner_test = (u * u) / (ellipse.inner_radius_a * ellipse.inner_radius_a) + 
-                     (v * v) / (ellipse.inner_radius_b * ellipse.inner_radius_b);
-    
-    if (inner_test < 1.0) {
-        return -1.0; // Inside inner ellipse (hole)
-    }
-    
     return t; // Valid intersection with the ring
+}
+
+fn get_ellipse_color(ellipse: Ellipse, hit_point: vec3<f32>) -> vec3<f32> {
+    let local_point = hit_point - ellipse.center;
+
+    let up = vec3<f32>(0.0, 1.0, 0.0);
+    var u_axis: vec3<f32>;
+    if (abs(dot(ellipse.normal, up)) < 0.9) {
+        u_axis = normalize(cross(ellipse.normal, up));
+    } else {
+        u_axis = normalize(cross(ellipse.normal, vec3<f32>(1.0, 0.0, 0.0)));
+    }
+    let v_axis = cross(ellipse.normal, u_axis);
+    
+    let u = dot(local_point, u_axis);
+    let v = dot(local_point, v_axis);
+    
+    let distance_from_center = sqrt((u * u) / (ellipse.radius_a * ellipse.radius_a) + 
+                                   (v * v) / (ellipse.radius_b * ellipse.radius_b));
+    
+    let border_start = 1.0 - ellipse.border_thickness;
+    if (distance_from_center > border_start) {
+        // Interpolate between main color and border color
+        let border_factor = (distance_from_center - border_start) / (1.0 - border_start);
+        return mix(ellipse.color, ellipse.border_color, border_factor);
+    }
+
+    return ellipse.color;
 }
 
 //////////////////////////////////////////
@@ -188,7 +210,7 @@ fn trace_ray(ray: Ray) -> HitInfo {
             hit_info.t = t;
             hit_info.point = ray.origin + t * ray.direction;
             hit_info.normal = ellipse.normal;
-            hit_info.color = ellipse.color;
+            hit_info.color = get_ellipse_color(ellipse, hit_info.point);
         }
     }
     
@@ -219,7 +241,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let camera_up = cross(camera_right, camera_forward);
     
     // Calculate ray direction
-    let fov = 0.8;
+    let fov = 1.0;
     let ray_direction = normalize(
         camera_forward + 
         uv.x * camera_right * fov +
