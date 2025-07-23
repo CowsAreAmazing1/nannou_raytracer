@@ -5,7 +5,7 @@ use bytemuck::{Pod, Zeroable};
 use std::collections::HashSet;
 
 mod scene;
-use scene::{SceneData, Plane, Ellipse, Portal, PortalPair};
+use scene::SceneData;
 
 
 fn main() {
@@ -91,155 +91,6 @@ struct Model {
 
 
 impl Model {
-    fn create_scenes() -> Vec<SceneData> {
-        let mut scenes = Vec::new();
-
-        // Scene 1: Ellipse Showcase
-        let mut scene1 = SceneData::new();
-            
-        scene1.add_plane(
-            Plane::new(
-                [0.0, -2.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.2, 0.0, 0.0],
-            )
-        );
-
-        let e_a = 0.4;
-        let e_b = 1.0;
-        let rim_thickness = 0.2;
-
-        scene1.add_ellipse(
-            Ellipse::new(
-                [1.5, 1.0, -4.0],
-                [0.0, -0.5, 1.0],
-                e_a,
-                e_b,
-                rim_thickness,
-                [0.7, 0.4, 0.0],
-                [0.0, 0.0, 0.0],
-            )
-        );
-
-        scene1.add_ellipse(
-            Ellipse::new(
-                [-1.5, 1.0, -4.0],
-                [0.0, -0.5, 1.0],
-                e_a,
-                e_b,
-                rim_thickness,
-                [0.0, 0.4, 0.7],
-                [0.0, 0.0, 0.0],
-            )
-        );
-
-        scenes.push(scene1);
-
-        
-        // Scene 2: Single Portal Pair Setup
-        let mut scene2 = SceneData::new();
-
-        scene2.add_plane(
-            Plane::new(
-                [0.1, 0.0, 0.1],
-                [-0.1, 1.0, -0.1],
-                [0.5, 0.0, 0.0],
-            )
-        );
-        scene2.add_plane(
-            Plane::new(
-                [-0.1, 0.0, 0.1],
-                [0.1, 1.0, -0.1],
-                [0.35, 0.35, 0.0],
-            )
-        );
-        scene2.add_plane(
-            Plane::new(
-                [0.1, 0.0, -0.1],
-                [-0.1, 1.0, 0.1],
-                [0.0, 0.5, 0.0],
-            )
-        );
-        scene2.add_plane(
-            Plane::new(
-                [-0.1, 0.0, -0.1],
-                [0.1, 1.0, 0.1],
-                [0.0, 0.2, 0.5],
-            )
-        );
-        scene2.add_ellipse(
-            Ellipse::new(
-                [0.0, 1.5, -4.0],
-                [0.0, 0.0, 1.0],
-                e_a,
-                e_b,
-                rim_thickness,
-                [0.7, 0.4, 0.0],
-                [0.0, 0.0, 0.0],
-            )
-        );
-        scene2.add_ellipse(
-            Ellipse::new(
-                [2.0, 1.5, -4.1],
-                [0.0, 0.0, -1.0],
-                e_a,
-                e_b,
-                rim_thickness,
-                [0.0, 0.4, 0.7],
-                [0.0, 0.0, 0.0],
-            )
-        );
-        scenes.push(scene2);
-
-
-
-        // Scene 3: Single Portal Pair
-        let mut scene3 = SceneData::new();
-
-        scene3.add_plane(
-            Plane::new(
-                [0.1, 0.0, 0.1],
-                [-0.1, 1.0, -0.1],
-                [0.5, 0.0, 0.0],
-            )
-        );
-        scene3.add_plane(
-            Plane::new(
-                [-0.1, 0.0, 0.1],
-                [0.1, 1.0, -0.1],
-                [0.35, 0.35, 0.0],
-            )
-        );
-        scene3.add_plane(
-            Plane::new(
-                [0.1, 0.0, -0.1],
-                [-0.1, 1.0, 0.1],
-                [0.0, 0.5, 0.0],
-            )
-        );
-        scene3.add_plane(
-            Plane::new(
-                [-0.1, 0.0, -0.1],
-                [0.1, 1.0, 0.1],
-                [0.0, 0.2, 0.5],
-            )
-        );
-        scene3.add_portal_pair(
-            PortalPair::new(
-                Portal::from_ellipse(
-                    scene2.ellipses[0],
-                ),
-                Portal::from_ellipse(
-                    scene2.ellipses[1],
-                ),
-            )
-        );
-
-        scenes.push(scene3);
-
-        scenes
-    }
-
     fn switch_scene(&mut self, scene_id: u32) {
         if scene_id < self.scenes.len() as u32 {
             self.current_scene = scene_id;
@@ -261,7 +112,7 @@ fn model(app: &App) -> Model {
     let window = app.window(window_id).unwrap();
     let device = window.device();
 
-    let scenes = Model::create_scenes();
+    let scenes = SceneData::create_scenes();
 
     // Create uniform buffer
     let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -371,7 +222,7 @@ fn model(app: &App) -> Model {
             scene_buffer,
             uniform_bind_group,
         },
-        current_scene: 1,
+        current_scene: 3,
         scenes,
         camera: Camera::new(),
         keys_pressed: HashSet::new(),
@@ -395,6 +246,10 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
         Key::Key3 => {
             model.switch_scene(2);
             println!("Switched to Scene {}: {}", 3, "Single Portal Pair");
+        },
+        Key::Key4 => {
+            model.switch_scene(3);
+            println!("Switched to Scene {}: {}", 4, "Rooms");
         },
         Key::Tab => {
             model.mouse_locked = !model.mouse_locked;

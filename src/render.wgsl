@@ -17,6 +17,10 @@ struct Plane {
     _padding2: f32,
     color: vec3<f32>,
     _padding3: f32,
+    width: f32,
+    height: f32,
+    is_infinite: f32, // 0.0 for finite, 1.0 for infinite
+    _padding4: f32,
 }
 
 struct Ellipse {
@@ -50,7 +54,7 @@ struct SceneData {
     ellipse_count: u32,
     portal_pair_count: u32,
     _padding1: u32,
-    planes: array<Plane, 4>,
+    planes: array<Plane, 10>,
     ellipses: array<Ellipse, 4>,
     portal_pairs: array<PortalPair, 4>,
 }
@@ -107,18 +111,45 @@ struct Ray {
 fn ray_plane_intersect(ray: Ray, plane: Plane) -> f32 {
     let denom = dot(plane.normal, ray.direction);
     if (abs(denom) < 1e-6) {
-        return -1.0; // Ray is parallel to the plane
+        return -1.0;
     }
     let t = dot(plane.point - ray.origin, plane.normal) / denom;
     if (t < 0.0) {
-        return -1.0; // Intersection behind the ray origin
+        return -1.0;
     }
-    return t; // Return the distance to the intersection point
+    
+    // Check if plane is finite
+    if (plane.is_infinite < 0.5) {
+        let hit_point = ray.origin + t * ray.direction;
+        let local_point = hit_point - plane.point;
+        
+        // Create local coordinate system for the plane
+        let up = vec3<f32>(0.0, 1.0, 0.0);
+        var u_axis: vec3<f32>;
+        var v_axis: vec3<f32>;
+        
+        if (abs(dot(plane.normal, up)) < 0.9) {
+            u_axis = normalize(cross(plane.normal, up));
+        } else {
+            u_axis = normalize(cross(plane.normal, vec3<f32>(1.0, 0.0, 0.0)));
+        }
+        v_axis = cross(plane.normal, u_axis);
+        
+        let u = dot(local_point, u_axis);
+        let v = dot(local_point, v_axis);
+        
+        // Check bounds
+        if (abs(u) > plane.width * 0.5 || abs(v) > plane.height * 0.5) {
+            return -1.0; // Outside bounds
+        }
+    }
+    
+    return t;
 }
 
 fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
     // First, intersect with the plane containing the ellipse
-    let plane = Plane(ellipse.center, 0.0, ellipse.normal, 0.0, ellipse.color, 0.0);
+    let plane = Plane(ellipse.center, 0.0, ellipse.normal, 0.0, ellipse.color, 0.0, 0.0, 0.0, 1.0, 0.0);
     let t = ray_plane_intersect(ray, plane);
     
     if (t < 0.0) {
@@ -256,21 +287,38 @@ fn trace_ray(ray: Ray) -> HitInfo {
             hit_info.normal = plane.normal;
             hit_info.color = plane.color;
 
-            // Checker
-            let world_pos = hit_info.point;
-            let checker_scale = 1.0;
-            let checker_x = floor(world_pos.x / checker_scale + 0.5);
-            let checker_z = floor(world_pos.z / checker_scale + 0.5);
-            let sum = checker_x + checker_z;
+            // Create local coordinate system for the plane
+            let hit_point = hit_info.point;
+            let local_point = hit_point - plane.point;
+            
+            let up = vec3<f32>(0.0, 1.0, 0.0);
+            var u_axis: vec3<f32>;
+            var v_axis: vec3<f32>;
+            
+            if (abs(dot(plane.normal, up)) < 0.9) {
+                u_axis = normalize(cross(plane.normal, up));
+            } else {
+                u_axis = normalize(cross(plane.normal, vec3<f32>(1.0, 0.0, 0.0)));
+            }
+            v_axis = cross(plane.normal, u_axis);
+            
+            // Project hit point onto plane's local coordinates
+            let u = dot(local_point, u_axis);
+            let v = dot(local_point, v_axis);
+            
+            // Apply checkerboard pattern using local coordinates
+            let checker_scale = 0.5;
+            let checker_u = floor(u / checker_scale + 0.5);
+            let checker_v = floor(v / checker_scale + 0.5);
+            let sum = checker_u + checker_v;
             let checker_pattern = abs(sum - 2.0 * floor(sum * 0.5));
 
             if (checker_pattern < 0.5) {
                 hit_info.color = plane.color;
             } else {
-                hit_info.color = plane.color - vec3<f32>(0.15, 0.15, 0.15); // Darker color for checkerboard
+                hit_info.color = plane.color - vec3<f32>(0.25, 0.25, 0.25);
             }
         }
-
     }
     
     for (var i: u32 = 0u; i < scene.ellipse_count; i++) {
