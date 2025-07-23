@@ -1,6 +1,6 @@
 
 use bytemuck::{Pod, Zeroable};
-
+use nannou::prelude::*;
 
 
 
@@ -112,14 +112,53 @@ pub struct Portal {
     pub inverse_transformation_matrix: [f32; 16],
 }
 
-// impl Default for Portal {
-//     fn default() -> Self {
-//         Self {
-//             ellipse: Ellipse::default(),
-//             affine: Affine3A::IDENTITY,
-//         }
-//     }
-// }
+impl Default for Portal {
+    fn default() -> Self {
+        Self {
+            ellipse: Ellipse::default(),
+            transformation_matrix: Mat4::IDENTITY.to_cols_array(),
+            inverse_transformation_matrix: Mat4::IDENTITY.to_cols_array(),
+        }
+    }
+}
+
+impl Portal {
+    #[allow(dead_code)]
+    pub fn new(position: Vec3, rotation: Quat, radius_a: f32, radius_b: f32) -> Self {
+        let ellipse = Ellipse::new(
+            position.to_array(),
+            (rotation * Vec3::Y).to_array(),
+            radius_a,
+            radius_b,
+            0.0,
+            [1.0, 1.0, 1.0],
+            [0.5, 0.5, 0.5],
+        );
+        
+        let transform_mat4 = Mat4::from_rotation_translation(rotation, position);
+        let inverse_mat4 = transform_mat4.inverse();
+        
+        Self {
+            ellipse,
+            transformation_matrix: transform_mat4.to_cols_array(),
+            inverse_transformation_matrix: inverse_mat4.to_cols_array(),
+        }
+    }
+
+    pub fn from_ellipse(ellipse: Ellipse) -> Self {
+        let position = Vec3::from(ellipse.center);
+        let rotation = Quat::from_rotation_arc(Vec3::X, Vec3::from(ellipse.normal));
+
+        let transformation_matrix = Mat4::from_rotation_translation(rotation, position);
+        let inverse_transformation_matrix = transformation_matrix.inverse();
+
+        Self {
+            ellipse,
+            transformation_matrix: transformation_matrix.to_cols_array(),
+            inverse_transformation_matrix: inverse_transformation_matrix.to_cols_array(),
+        }
+    }
+}
 
 
 
@@ -132,34 +171,58 @@ pub struct PortalPair {
     pub portal_b: Portal,
 }
 
-// impl Default for PortalPair {
-//     fn default() -> Self {
-//         Self {
-//             portal_a: Portal::default(),
-//             portal_b: Portal::default(),
-//         }
-//     }
-// }
+impl Default for PortalPair {
+    fn default() -> Self {
+        Self {
+            portal_a: Portal::default(),
+            portal_b: Portal::default(),
+        }
+    }
+}
 
+impl PortalPair {
+    pub fn new(portal_a: Portal, portal_b: Portal) -> Self {
+        let mut flipped_b = portal_b;
+
+        // Get the original transformation matrix
+        let original_transform = Mat4::from_cols_array(&portal_b.transformation_matrix);
+        
+        // Create a 180-degree rotation around the portal's Y-axis (up vector)
+        // This flips the Z-axis (forward/backward direction) while keeping position and up
+        let flip_rotation = Mat4::from_rotation_y(std::f32::consts::PI);
+        
+        // Apply the flip to the transformation matrix
+        let flipped_transform = original_transform * flip_rotation;
+        let flipped_inverse = flipped_transform.inverse();
+        
+        // Update only the transformation matrices, keep the ellipse unchanged
+        flipped_b.transformation_matrix = flipped_transform.to_cols_array();
+        flipped_b.inverse_transformation_matrix = flipped_inverse.to_cols_array();
+
+        Self { 
+            portal_a, 
+            portal_b: flipped_b, 
+        }
+    }
+}
 
 
 
 
 const MAX_PLANES: usize = 4;
-const MAX_ELLIPSES: usize = 8;
-// const MAX_PORTAL_PAIRS: usize = 4;
+const MAX_ELLIPSES: usize = 4;
+const MAX_PORTAL_PAIRS: usize = 4;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 pub struct SceneData {
     pub plane_count: u32,
     pub ellipse_count: u32,
-    // portal_pair_count: u32,
+    pub portal_pair_count: u32,
     _padding1: u32,
-    _padding2: u32,
     pub planes: [Plane; MAX_PLANES],
     pub ellipses: [Ellipse; MAX_ELLIPSES],
-    // portal_pairs: [PortalPair; MAX_PORTAL_PAIRS],
+    pub portal_pairs: [PortalPair; MAX_PORTAL_PAIRS],
 }
 
 impl Default for SceneData {
@@ -167,12 +230,11 @@ impl Default for SceneData {
         Self {
             plane_count: 0,
             ellipse_count: 0,
-            // portal_pair_count: 0,
+            portal_pair_count: 0,
             _padding1: 0,
-            _padding2: 0,
             planes: [Plane::default(); MAX_PLANES],
             ellipses: [Ellipse::default(); MAX_ELLIPSES],
-            // portal_pairs: [PortalPair::default(); MAX_PORTAL_PAIRS],
+            portal_pairs: [PortalPair::default(); MAX_PORTAL_PAIRS],
         }
     }
 }
@@ -197,6 +259,15 @@ impl SceneData {
             self.ellipse_count += 1;
         } else {
             println!("Max ellipse count reached: {}", MAX_ELLIPSES);
+        }
+    }
+
+    pub fn add_portal_pair(&mut self, portal_pair: PortalPair) {
+        if self.portal_pair_count < MAX_PORTAL_PAIRS as u32 {
+            self.portal_pairs[self.portal_pair_count as usize] = portal_pair;
+            self.portal_pair_count += 1;
+        } else {
+            println!("Max portal pair count reached: {}", MAX_PORTAL_PAIRS);
         }
     }
 }

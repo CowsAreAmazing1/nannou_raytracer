@@ -94,6 +94,7 @@ impl Model {
     fn create_scenes() -> Vec<SceneData> {
         let mut scenes = Vec::new();
 
+        // Scene 1: Ellipse Showcase
         let mut scene1 = SceneData::new();
             
         scene1.add_plane(
@@ -134,29 +135,114 @@ impl Model {
 
         scenes.push(scene1);
 
+        
+        // Scene 2: Single Portal Pair Setup
+        let mut scene2 = SceneData::new();
+
+        scene2.add_plane(
+            Plane::new(
+                [0.1, 0.0, 0.1],
+                [-0.1, 1.0, -0.1],
+                [0.5, 0.0, 0.0],
+            )
+        );
+        scene2.add_plane(
+            Plane::new(
+                [-0.1, 0.0, 0.1],
+                [0.1, 1.0, -0.1],
+                [0.35, 0.35, 0.0],
+            )
+        );
+        scene2.add_plane(
+            Plane::new(
+                [0.1, 0.0, -0.1],
+                [-0.1, 1.0, 0.1],
+                [0.0, 0.5, 0.0],
+            )
+        );
+        scene2.add_plane(
+            Plane::new(
+                [-0.1, 0.0, -0.1],
+                [0.1, 1.0, 0.1],
+                [0.0, 0.2, 0.5],
+            )
+        );
+        scene2.add_ellipse(
+            Ellipse::new(
+                [0.0, 1.5, -4.0],
+                [0.0, 0.0, 1.0],
+                e_a,
+                e_b,
+                rim_thickness,
+                [0.7, 0.4, 0.0],
+                [0.0, 0.0, 0.0],
+            )
+        );
+        scene2.add_ellipse(
+            Ellipse::new(
+                [2.0, 1.5, -4.1],
+                [0.0, 0.0, -1.0],
+                e_a,
+                e_b,
+                rim_thickness,
+                [0.0, 0.4, 0.7],
+                [0.0, 0.0, 0.0],
+            )
+        );
+        scenes.push(scene2);
+
+
+
+        // Scene 3: Single Portal Pair
+        let mut scene3 = SceneData::new();
+
+        scene3.add_plane(
+            Plane::new(
+                [0.1, 0.0, 0.1],
+                [-0.1, 1.0, -0.1],
+                [0.5, 0.0, 0.0],
+            )
+        );
+        scene3.add_plane(
+            Plane::new(
+                [-0.1, 0.0, 0.1],
+                [0.1, 1.0, -0.1],
+                [0.35, 0.35, 0.0],
+            )
+        );
+        scene3.add_plane(
+            Plane::new(
+                [0.1, 0.0, -0.1],
+                [-0.1, 1.0, 0.1],
+                [0.0, 0.5, 0.0],
+            )
+        );
+        scene3.add_plane(
+            Plane::new(
+                [-0.1, 0.0, -0.1],
+                [0.1, 1.0, 0.1],
+                [0.0, 0.2, 0.5],
+            )
+        );
+        scene3.add_portal_pair(
+            PortalPair::new(
+                Portal::from_ellipse(
+                    scene2.ellipses[0],
+                ),
+                Portal::from_ellipse(
+                    scene2.ellipses[1],
+                ),
+            )
+        );
+
+        scenes.push(scene3);
+
         scenes
     }
 
     fn switch_scene(&mut self, scene_id: u32) {
         if scene_id < self.scenes.len() as u32 {
             self.current_scene = scene_id;
-        }
-    }
-
-    fn animate_scene(&mut self, time: f32) {
-        match self.current_scene {
-            0 => {
-                // Animate ellipse scene
-                if self.scenes[0].ellipse_count > 0 {
-                    let rotation = time * 0.5;
-                    self.scenes[0].ellipses[0].normal = [
-                        rotation.sin(),
-                        -0.5,
-                        rotation.cos(),
-                    ];
-                }
-            }
-            _ => {}
         }
     }
 }
@@ -285,7 +371,7 @@ fn model(app: &App) -> Model {
             scene_buffer,
             uniform_bind_group,
         },
-        current_scene: 0,
+        current_scene: 1,
         scenes,
         camera: Camera::new(),
         keys_pressed: HashSet::new(),
@@ -300,7 +386,15 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
     match key {
         Key::Key1 => {
             model.switch_scene(0);
-            println!("Switched to Scene 1: Ellipse Showcase");
+            println!("Switched to Scene {}: {}", 1, "Ellipse Showcase");
+        },
+        Key::Key2 => {
+            model.switch_scene(1);
+            println!("Switched to Scene {}: {}", 2, "Portal Pair Setup");
+        },
+        Key::Key3 => {
+            model.switch_scene(2);
+            println!("Switched to Scene {}: {}", 3, "Single Portal Pair");
         },
         Key::Tab => {
             model.mouse_locked = !model.mouse_locked;
@@ -342,7 +436,7 @@ fn mouse_moved(_app: &App, model: &mut Model, pos: Point2) {
     }
 }
 
-fn update(app: &App, model: &mut Model, update: Update) {
+fn update(_app: &App, model: &mut Model, update: Update) {
     // Remove mouse handling from here - it's now in mouse_moved
     let dt = update.since_last.as_secs_f32();
     
@@ -372,8 +466,6 @@ fn update(app: &App, model: &mut Model, update: Update) {
         movement = movement.normalize() * model.camera.speed * dt;
         model.camera.position += movement;
     }
-    
-    model.animate_scene(app.time);
 }
 
 
