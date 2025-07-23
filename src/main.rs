@@ -5,7 +5,7 @@ use bytemuck::{Pod, Zeroable};
 use std::collections::HashSet;
 
 mod scene;
-use scene::SceneData;
+use scene::{SceneData, check_camera_portal_teleport};
 
 
 fn main() {
@@ -300,8 +300,9 @@ fn mouse_moved(_app: &App, model: &mut Model, pos: Point2) {
 }
 
 fn update(app: &App, model: &mut Model, update: Update) {
-    // Remove mouse handling from here - it's now in mouse_moved
     let dt = update.since_last.as_secs_f32();
+    
+    let old_position = model.camera.position;
     
     // Only handle WASD movement in update_camera
     let mut movement = Vec3::ZERO;
@@ -327,7 +328,17 @@ fn update(app: &App, model: &mut Model, update: Update) {
     
     if movement.length() > 0.0 {
         movement = movement.normalize() * model.camera.speed * dt;
-        model.camera.position += movement;
+        let new_position = model.camera.position + movement;
+
+        if let Some(teleported_pos) = check_camera_portal_teleport(
+            &model.scenes[model.current_scene as usize],
+            old_position,
+            new_position,
+        ) {
+            model.camera.position = teleported_pos;
+        } else {
+            model.camera.position = new_position;
+        }
     }
 
     animate_portals(model, app.time);

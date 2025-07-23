@@ -171,6 +171,7 @@ impl Portal {
         portal
     }
 
+    #[allow(dead_code)]
     fn from_ellipse(ellipse: Ellipse) -> Self {
         let mut portal = Self {
             ellipse,
@@ -182,6 +183,7 @@ impl Portal {
         portal
     }
 
+    #[allow(dead_code)]
     fn transform_from_self(&mut self) {
         let position = Vec3::from(self.ellipse.center);
         let rotation = Quat::from_rotation_arc(Vec3::Y, Vec3::from(self.ellipse.normal));
@@ -220,11 +222,13 @@ impl Portal {
     }
     
     // Animation methods
+    #[allow(dead_code)]
     pub fn set_position(&mut self, position: Vec3) {
         let current_rotation = self.get_rotation();
         self.update_transform(position, current_rotation);
     }
     
+    #[allow(dead_code)]
     pub fn set_rotation(&mut self, rotation: Quat) {
         let current_position = Vec3::from(self.ellipse.center);
         self.update_transform(current_position, rotation);
@@ -234,6 +238,7 @@ impl Portal {
         self.update_transform(position, rotation);
     }
     
+    #[allow(dead_code)]
     fn get_rotation(&self) -> Quat {
         let current_normal = Vec3::from(self.ellipse.normal);
         Quat::from_rotation_arc(Vec3::Y, current_normal)
@@ -271,11 +276,13 @@ impl PortalPair {
         }
     }
     
+    #[allow(dead_code)]
     pub fn animate_portal_a(&mut self, position: Vec3, rotation: Quat) {
         self.portal_a.animate(position, rotation);
         self.portal_a.apply_flip();
     }
     
+    #[allow(dead_code)]
     pub fn animate_portal_b(&mut self, position: Vec3, rotation: Quat) {
         self.portal_b.animate(position, rotation);
     }
@@ -518,7 +525,7 @@ impl SceneData {
         scenes.push(scene3);
         }
 
-        { // Rooms
+        { // Scene 4: Rooms
         let mut scene4 = SceneData::new();
 
         scene4.add_plane(Plane::new_finite( // Red right
@@ -611,7 +618,7 @@ impl SceneData {
         scenes.push(scene4);
         }
 
-        { // Infinite Portal Room
+        { // Scene 5: Infinite Portal Room
         let mut scene5 = SceneData::new();
 
         scene5.add_plane(
@@ -836,4 +843,148 @@ impl SceneData {
 
         scenes
     }
+}
+
+
+pub fn check_camera_portal_teleport(
+    scene: &SceneData,
+    old_pos: Vec3,
+    new_pos: Vec3,
+) -> Option<Vec3> {
+    let movement_vec = new_pos - old_pos;
+    let movement_length = movement_vec.length();
+
+    if movement_length < 0.001 {
+        return None;
+    }
+
+    let ray_direction = movement_vec / movement_length;
+
+    for i in 0..scene.portal_pair_count {
+        let portal_pair = &scene.portal_pairs[i as usize];
+
+        if let Some(teleport_pos) = check_single_portal_teleport(
+            old_pos,
+            ray_direction,
+            movement_length,
+            &portal_pair.portal_a,
+            &portal_pair.portal_b,
+        ) {
+            return Some(teleport_pos);
+        }
+
+        if let Some(teleport_pos) = check_single_portal_teleport(
+            old_pos,
+            ray_direction,
+            movement_length,
+            &portal_pair.portal_b,
+            &portal_pair.portal_a,
+        ) {
+            return Some(teleport_pos);
+        }
+    }
+
+    None
+}
+
+fn check_single_portal_teleport(
+    ray_origin: Vec3,
+    ray_direction: Vec3,
+    max_distance: f32,
+    in_portal: &Portal,
+    out_portal: &Portal,
+) -> Option<Vec3> {
+    let ellipse = in_portal.ellipse;
+
+    let t = ray_ellipse_intersect_cpu(ray_origin, ray_direction, ellipse);
+
+    if t > 0.001 && t < max_distance {
+        let portal_normal = Vec3::from(ellipse.normal);
+        if ray_direction.dot(portal_normal) < 0.0 {
+            let hit_point = ray_origin + t * ray_direction;
+            let remaining_distance = max_distance - t;
+
+            let teleported_point = transform_point_through_portal(
+                hit_point,
+                in_portal,
+                out_portal,
+            );
+
+            let transformed_direction = transform_direction_through_portal(
+                ray_direction,
+                in_portal,
+                out_portal,
+            );
+
+            return Some(teleported_point + remaining_distance * transformed_direction);
+        }
+    }
+
+    None
+}
+
+fn ray_ellipse_intersect_cpu(
+    ray_origin: Vec3,
+    ray_direction: Vec3,
+    ellipse: Ellipse
+) -> f32 {
+    let center = Vec3::from(ellipse.center);
+    let normal = Vec3::from(ellipse.normal);
+
+    let denom = normal.dot(ray_direction);
+    if denom.abs() < 1e-6 {
+        return -1.0;
+    }
+
+    let t = (center - ray_origin).dot(normal) / denom;
+    if t < 0.0 {
+        return -1.0;
+    }
+
+    let hit_point = ray_origin + t * ray_direction;
+    let local_point = hit_point - center;
+
+    let up = Vec3::Y;
+    let u_axis = if normal.dot(up).abs() < 0.9 {
+        normal.cross(up).normalize()
+    } else {
+        normal.cross(Vec3::X).normalize()
+    };
+    let v_axis = u_axis.cross(normal);
+
+    let u = local_point.dot(u_axis);
+    let v = local_point.dot(v_axis);
+
+    let ellipse_test = (u*u) / (ellipse.radius_a * ellipse.radius_a) + 
+                       (v*v) / (ellipse.radius_b * ellipse.radius_b);
+
+    if ellipse_test > 1.0 {
+        return -1.0;
+    }
+
+    t
+}
+
+fn transform_point_through_portal(
+    point: Vec3, 
+    in_portal: &Portal, 
+    out_portal: &Portal
+) -> Vec3 {
+    let in_transform = Mat4::from_cols_array(&in_portal.inverse_transformation_matrix);
+    let out_transform = Mat4::from_cols_array(&out_portal.transformation_matrix);
+    
+    let local_point = in_transform.transform_point3(point);
+    out_transform.transform_point3(local_point)
+}
+
+fn transform_direction_through_portal(
+    direction: Vec3, 
+    in_portal: &Portal, 
+    out_portal: &Portal
+) -> Vec3 {
+    let in_transform = Mat4::from_cols_array(&in_portal.inverse_transformation_matrix);
+    let out_transform = Mat4::from_cols_array(&out_portal.transformation_matrix);
+    
+    let local_direction = in_transform.transform_vector3(direction);
+    out_transform.transform_vector3(local_direction).normalize()
 }
