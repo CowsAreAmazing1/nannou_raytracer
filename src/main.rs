@@ -5,7 +5,10 @@ use bytemuck::{Pod, Zeroable};
 use std::collections::HashSet;
 
 mod scene;
-use scene::{SceneData, check_camera_portal_teleport};
+use scene::SceneData;
+
+mod cpu_raytracer;
+use cpu_raytracer::{DebugRay, shoot_debug_ray, check_camera_portal_teleport};
 
 
 fn main() {
@@ -86,6 +89,9 @@ struct Model {
     keys_pressed: HashSet<Key>,
     mouse_locked: bool,
     last_mouse_pos: Option<Vec2>,
+
+    debug_ray: Option<DebugRay>,
+    debug_ray_active: bool,
 }
 
 
@@ -228,6 +234,9 @@ fn model(app: &App) -> Model {
         keys_pressed: HashSet::new(),
         mouse_locked: false,
         last_mouse_pos: None,
+
+        debug_ray: None,
+        debug_ray_active: false,
     }
 }
 
@@ -263,6 +272,13 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
             model.mouse_locked = !model.mouse_locked;
             model.last_mouse_pos = None;
             println!("Mouse lock: {}", if model.mouse_locked { "ON" } else { "OFF" });
+        }
+        Key::R => {
+            shoot_debug_ray(model);
+        }
+        Key::C => {
+            model.debug_ray = None;
+            model.debug_ray_active = false;
         }
         _ => {}
     }
@@ -443,6 +459,20 @@ fn view(app: &App, model: &Model, frame: Frame) {
     }
     queue.submit(Some(encoder.finish()));
 
-    let draw = app.draw();
-    draw.to_frame(app, &frame).unwrap();
+
+
+    // let draw = app.draw();
+
+    // if let Some(ref debug_ray) = model.debug_ray {
+    //     for segment in &debug_ray.segments {
+    //         draw.line()
+    //             .start(pt3(segment.start.x, segment.start.y, segment.start.z))
+    //             .end(pt3(segment.end.x, segment.end.y, segment.end.z))
+    //             .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+    //             .weight(2.0);
+    //     }
+    // }
+
+
+    // draw.to_frame(app, &frame).unwrap();
 }
