@@ -303,7 +303,7 @@ impl SceneData {
     pub fn create_scenes() -> Vec<SceneData> {
         let mut scenes = Vec::new();
 
-        let e_a = 0.4;
+        let e_a = 0.6;
         let e_b = 1.0;
         let rim_thickness = 0.2;
 
@@ -548,6 +548,64 @@ impl SceneData {
 
 
         scenes.push(scene4);
+        }
+
+        { // Infinite Portal Room
+        let mut scene5 = SceneData::new();
+
+        scene5.add_plane(Plane::new_finite( // Red right
+            [1.5, 0.0 + 1.0, 0.0 - 5.0], 
+            [-1.0, 0.0, 0.0],
+            [0.2, 0.0, 0.0],
+            3.0,
+            3.0
+        ));
+        scene5.add_plane(Plane::new_finite( // Red back
+            [0.0, 0.0 + 1.0, -1.5 - 5.0], 
+            [0.0, 0.0, 1.0],
+            [0.3, 0.0, 0.0],
+            3.0,
+            3.0
+        ));
+        scene5.add_plane(Plane::new_finite( // Red left
+            [-1.5, 0.0 + 1.0, 0.0 - 5.0], 
+            [1.0, 0.0, 0.0],
+            [0.4, 0.0, 0.0],
+            3.0,
+            3.0
+        ));
+        scene5.add_plane(Plane::new_finite( // Red bottom
+            [-0.0, -1.5 + 1.0, 0.0 - 5.0], 
+            [0.0, 1.0, 0.0],
+            [0.5, 0.0, 0.0],
+            3.0,
+            3.0
+        ));
+        scene5.add_plane(Plane::new_finite( // Red right
+            [-0.0, 1.5 + 1.0, 0.0 - 5.0], 
+            [0.0, -1.0, 0.0],
+            [0.6, 0.0, 0.0],
+            3.0,
+            3.0
+        ));
+
+        scene5.add_portal_pair(PortalPair::new(
+            Portal::new(
+                Vec3::new(-1.2, 0.0 + 1.0, 0.0 - 5.0),
+                Quat::from_rotation_arc(Vec3::Y, Vec3::X),
+                1.2,
+                1.2,
+            ),
+            Portal::new(
+                Vec3::new(1.2, 0.0 + 1.0, 0.0 - 5.0),
+                Quat::from_rotation_arc(Vec3::Y, -Vec3::X) * Quat::from_rotation_x(0.1),
+                1.2,
+                1.2,
+            ),
+        ));
+
+
+        scenes.push(scene5);
         }
 
         scenes

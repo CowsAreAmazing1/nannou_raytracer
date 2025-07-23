@@ -190,31 +190,7 @@ fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
 }
 
 fn get_ellipse_color(ellipse: Ellipse, hit_point: vec3<f32>) -> vec3<f32> {
-    let local_point = hit_point - ellipse.center;
-
-    let up = vec3<f32>(0.0, 1.0, 0.0);
-    var u_axis: vec3<f32>;
-    if (abs(dot(ellipse.normal, up)) < 0.9) {
-        u_axis = normalize(cross(ellipse.normal, up));
-    } else {
-        u_axis = normalize(cross(ellipse.normal, vec3<f32>(1.0, 0.0, 0.0)));
-    }
-    let v_axis = cross(ellipse.normal, u_axis);
-    
-    let u = dot(local_point, u_axis);
-    let v = dot(local_point, v_axis);
-    
-    let distance_from_center = sqrt((u * u) / (ellipse.radius_a * ellipse.radius_a) + 
-                                   (v * v) / (ellipse.radius_b * ellipse.radius_b));
-    
-    let border_start = 1.0 - ellipse.border_thickness;
-    if (distance_from_center > border_start) {
-        // Interpolate between main color and border color
-        let border_factor = (distance_from_center - border_start) / (1.0 - border_start);
-        return mix(ellipse.color, ellipse.border_color, border_factor);
-    }
-
-    return ellipse.color;
+    return add_border(ellipse, hit_point, ellipse.color);
 }
 fn add_border(ellipse: Ellipse, hit_point: vec3<f32>, ellipse_color: vec3<f32>) -> vec3<f32> {
     let local_point = hit_point - ellipse.center;
@@ -236,9 +212,10 @@ fn add_border(ellipse: Ellipse, hit_point: vec3<f32>, ellipse_color: vec3<f32>) 
     
     let border_start = 1.0 - ellipse.border_thickness;
     if (distance_from_center > border_start) {
-        // Interpolate between main color and border color
-        let border_factor = (distance_from_center - border_start) / (1.0 - border_start);
-        return mix(ellipse_color, ellipse.border_color, border_factor);
+        // let border_factor = (distance_from_center - border_start) / (1.0 - border_start);
+        // return mix(ellipse_color, ellipse.border_color, border_factor);
+
+        return ellipse.border_color;
     }
 
     return ellipse_color;
@@ -271,7 +248,90 @@ struct HitInfo {
     _padding: f32,
 }
 
-fn trace_ray(ray: Ray) -> HitInfo {
+fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
+    var current_ray = ray;
+
+    var hit_info: HitInfo;
+    var final_hit_info: HitInfo;
+    final_hit_info.hit = false;
+    final_hit_info.t = 1000.0;
+
+    for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
+        hit_info = trace_ray_single_bounce(current_ray);
+
+        if (!hit_info.hit) {
+            break;
+        }
+    
+
+        var has_hit_portal = false;
+        var in_portal: Portal;
+        var out_portal: Portal;
+
+        for (var i: u32 = 0u; i < scene.portal_pair_count; i++) {
+            let portal_pair = scene.portal_pairs[i];
+
+            let t_a = ray_portal_intersect(current_ray, portal_pair.portal_a);
+            let t_b = ray_portal_intersect(current_ray, portal_pair.portal_b);
+
+            // Check if the portals should be the thing rendered
+            var hit_portal_a = t_a > 0.001 && t_a < hit_info.t;
+            var hit_portal_b = t_b > 0.001 && t_b < hit_info.t;
+
+            if (!hit_portal_a && !hit_portal_b) {
+                continue; // No valid intersection with either portal
+            }
+
+            has_hit_portal = true;
+
+            // Choose the closer portal
+            if (hit_portal_a && (!hit_portal_b || t_a < t_b)) {
+                in_portal = portal_pair.portal_a;
+                out_portal = portal_pair.portal_b;
+                hit_info.t = t_a;
+            } else if (hit_portal_b) {
+                in_portal = portal_pair.portal_b;
+                out_portal = portal_pair.portal_a;
+                hit_info.t = t_b;
+            }
+            hit_info.color = vec3<f32>(1.0, 0.0, 0.0);
+        }
+
+        if (has_hit_portal) {
+            hit_info.hit = true;
+            hit_info.point = current_ray.origin + hit_info.t * current_ray.direction;
+
+            /*
+                The open side of a portal is the side with the normal pointing towards the viewer.
+                Things teleported through a portal emerge from the second portals open side.
+
+                Two portals placed back to back (normals pointing out both sides) will act as a doorway.
+
+                A ray hitting a portal in the same direction as the portal's normal will be entering from the back,
+                    and should be rendered as if it were hitting an ellipse.
+            */
+            
+
+            // hit_info.color = get_ellipse_color(in_portal.ellipse, hit_info.point);
+            hit_info.normal = in_portal.ellipse.normal;
+            if (dot(current_ray.direction, in_portal.ellipse.normal) > 0.0 || bounce == max_bounces - 1u) {
+                break;
+            } else {
+                // Ray is going into the portal, show the view through it
+                current_ray = portal_ray(current_ray, hit_info.t, in_portal, out_portal);
+            }
+        } else {
+            // hit_info.color = vec3<f32>(0.0, f32(bounce) / f32(max_bounces), 0.0);
+            break;
+        }
+    }
+
+
+    
+    return hit_info;
+}
+
+fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
     var hit_info: HitInfo;
     hit_info.hit = false;
     hit_info.t = 1000.0;
@@ -334,159 +394,11 @@ fn trace_ray(ray: Ray) -> HitInfo {
         }
     }
 
-    var has_hit_portal = false;
-    var in_portal: Portal;
-    var out_portal: Portal;
-
-    for (var i: u32 = 0u; i < scene.portal_pair_count; i++) {
-        let portal_pair = scene.portal_pairs[i];
-
-        let t_a = ray_portal_intersect(ray, portal_pair.portal_a);
-        let t_b = ray_portal_intersect(ray, portal_pair.portal_b);
-
-        // Check if the portals should be the thing rendered
-        var hit_portal_a = t_a > 0.001 && t_a < hit_info.t;
-        var hit_portal_b = t_b > 0.001 && t_b < hit_info.t;
-
-        if (!hit_portal_a && !hit_portal_b) {
-            continue; // No valid intersection with either portal
-        }
-
-        // Choose the closer portal
-        if (hit_portal_a && (!hit_portal_b || t_a < t_b)) {
-            has_hit_portal = true;
-            in_portal = portal_pair.portal_a;
-            out_portal = portal_pair.portal_b;
-            hit_info.t = t_a;
-        } else if (hit_portal_b) {
-            has_hit_portal = true;
-            in_portal = portal_pair.portal_b;
-            out_portal = portal_pair.portal_a;
-            hit_info.t = t_b;
-        }
-    }
-
-    if (has_hit_portal) {
-        hit_info.hit = true;
-        hit_info.point = ray.origin + hit_info.t * ray.direction;
-
-        /*
-            The open side of a portal is the side with the normal pointing towards the viewer.
-            Things teleported through a portal emerge from the second portals open side.
-
-            Two portals placed back to back (normals pointing out both sides) will act as a doorway.
-
-            A ray hitting a portal in the same direction as the portal's normal will be entering from the back,
-                 and should be rendered as if it were hitting an ellipse.
-        */
-        
-        if (dot(ray.direction, in_portal.ellipse.normal) > 0.0) {
-            hit_info.color = get_ellipse_color(in_portal.ellipse, hit_info.point);
-            hit_info.normal = in_portal.ellipse.normal;
-        } else {
-            // Ray is going into the portal, show the view through it
-            let new_ray = portal_ray(ray, hit_info.t, in_portal, out_portal);
-            let portal_hit_info = garbage_trace_ray(new_ray);
-            
-            if (portal_hit_info.hit) {
-                hit_info.color = add_border(in_portal.ellipse, hit_info.point, portal_hit_info.color);
-                hit_info.normal = portal_hit_info.normal;
-                // Keep the portal's hit point for proper depth
-            } else {
-                hit_info.color = add_border(in_portal.ellipse, hit_info.point, vec3<f32>(0.1, 0.2, 0.4));
-            }
-        }
-    }
-    
     return hit_info;
 }
 
-/*
-im working on the logic to render the view through a portal. I feel like what i have in the trace_ray function would work, apart from the fact that wgsl does not allow recursion. How can i get around this limitation? Id like to avoid having two trace_ray functions, with one specifically for portal interactions, but if there is no other way, this can work. 
-*/
 
-fn garbage_trace_ray(ray: Ray) -> HitInfo {
-    var hit_info: HitInfo;
-    hit_info.hit = false;
-    hit_info.t = 1000.0;
 
-    for (var i: u32 = 0u; i < scene.plane_count; i++) {
-        let plane = scene.planes[i];
-        let t = ray_plane_intersect(ray, plane);
-
-        if (t > 0.001 && t < hit_info.t) {
-            hit_info.hit = true;
-            hit_info.t = t;
-            hit_info.point = ray.origin + t * ray.direction;
-            hit_info.normal = plane.normal;
-            hit_info.color = plane.color;
-
-            // Checker
-            let world_pos = hit_info.point;
-            let checker_scale = 1.0;
-            let checker_x = floor(world_pos.x / checker_scale + 0.5);
-            let checker_z = floor(world_pos.z / checker_scale + 0.5);
-            let sum = checker_x + checker_z;
-            let checker_pattern = abs(sum - 2.0 * floor(sum * 0.5));
-
-            if (checker_pattern < 0.5) {
-                hit_info.color = plane.color;
-            } else {
-                hit_info.color = plane.color - vec3<f32>(0.15, 0.15, 0.15); // Darker color for checkerboard
-            }
-        }
-
-    }
-    
-    for (var i: u32 = 0u; i < scene.ellipse_count; i++) {
-        let ellipse = scene.ellipses[i];
-        let t = ray_ellipse_intersect(ray, ellipse);
-        
-        if (t > 0.001 && t < hit_info.t) {
-            hit_info.hit = true;
-            hit_info.t = t;
-            hit_info.point = ray.origin + t * ray.direction;
-            hit_info.normal = ellipse.normal;
-            hit_info.color = get_ellipse_color(ellipse, hit_info.point);
-        }
-    }
-
-    // var has_hit_portal = false;
-    // var in_portal: Portal;
-    // var out_portal: Portal;
-
-    // for (var i: u32 = 0u; i < scene.portal_pair_count; i++) {
-    //     let portal_pair = scene.portal_pairs[i];
-
-    //     let t_a = ray_portal_intersect(ray, portal_pair.portal_a);
-    //     let t_b = ray_portal_intersect(ray, portal_pair.portal_b);
-
-    //     if (!(t_a > 0.001 && t_a < hit_info.t) && !(t_b > 0.001 && t_b < hit_info.t)) {
-    //         continue; // No intersection with either portal in this pair
-    //     }
-
-    //     has_hit_portal = true;
-
-    //     if (t_a > 0.001 && t_a < hit_info.t && t_a < t_b) { // Into portal a
-    //         in_portal = portal_pair.portal_a;
-    //         out_portal = portal_pair.portal_b;
-    //         hit_info.t = t_a;
-    //     } else { // Int portal b
-    //         in_portal = portal_pair.portal_b;
-    //         out_portal = portal_pair.portal_a;
-    //         hit_info.t = t_b;
-    //     }
-    // }
-
-    // if (has_hit_portal) {
-    //     hit_info.hit = true;
-    //     hit_info.point = ray.origin + hit_info.t * ray.direction;
-    //     // hit_info.normal = ellipse.normal;
-    //     hit_info.color = get_ellipse_color(in_portal.ellipse, hit_info.point);
-    // }
-
-    return hit_info;
-}
 
 // Calculate reflection direction
 fn reflect(incident: vec3<f32>, normal: vec3<f32>) -> vec3<f32> {
@@ -522,7 +434,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let primary_ray = Ray(ray_origin, ray_direction);
     
     // Trace the ray
-    let hit_info = trace_ray(primary_ray);
+    let hit_info = trace_ray(primary_ray, 15u);
     
     var color = vec3<f32>(0.1, 0.2, 0.4); // Blue gradient background
     

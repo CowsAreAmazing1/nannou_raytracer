@@ -251,6 +251,10 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
             model.switch_scene(3);
             println!("Switched to Scene {}: {}", 4, "Rooms");
         },
+        Key::Key5 => {
+            model.switch_scene(4);
+            println!("Switched to Scene {}: {}", 5, "Infinite Portal");
+        },
         Key::Tab => {
             model.mouse_locked = !model.mouse_locked;
             model.last_mouse_pos = None;
