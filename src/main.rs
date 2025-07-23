@@ -255,6 +255,10 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
             model.switch_scene(4);
             println!("Switched to Scene {}: {}", 5, "Infinite Portal");
         },
+        Key::Key6 => {
+            model.switch_scene(5);
+            println!("Switched to Scene {}: {}", 6, "Infinite Portal");
+        },
         Key::Tab => {
             model.mouse_locked = !model.mouse_locked;
             model.last_mouse_pos = None;
@@ -295,7 +299,7 @@ fn mouse_moved(_app: &App, model: &mut Model, pos: Point2) {
     }
 }
 
-fn update(_app: &App, model: &mut Model, update: Update) {
+fn update(app: &App, model: &mut Model, update: Update) {
     // Remove mouse handling from here - it's now in mouse_moved
     let dt = update.since_last.as_secs_f32();
     
@@ -325,7 +329,51 @@ fn update(_app: &App, model: &mut Model, update: Update) {
         movement = movement.normalize() * model.camera.speed * dt;
         model.camera.position += movement;
     }
+
+    animate_portals(model, app.time);
 }
+
+fn animate_portals(model: &mut Model, time: f32) {
+    if model.current_scene == 7 {
+        let scene = &mut model.scenes[model.current_scene as usize];
+        
+        if scene.portal_pair_count > 0 {
+            // Oscillating portals
+            let offset_a = Vec3::new((time * 0.5).sin() * 0.3, 0.0, 0.0);
+            let offset_b = Vec3::new((time * 0.7).cos() * 0.2, (time * 0.3).sin() * 0.2, 0.0);
+            
+            let base_pos_a = Vec3::new(-1.4, 1.0, -5.0);
+            let base_pos_b = Vec3::new(1.4, 1.0, -5.0);
+            
+            let rot_a = Quat::from_rotation_y(time * 0.2) * Quat::from_rotation_arc(Vec3::Y, Vec3::X);
+            let rot_b = Quat::from_rotation_y(-time * 0.3) * Quat::from_rotation_arc(Vec3::Y, -Vec3::X);
+            
+            scene.portal_pairs[0].animate_both(
+                base_pos_a + offset_a, rot_a,
+                base_pos_b + offset_b, rot_b
+            );
+        }
+        
+        if scene.portal_pair_count > 1 {
+            // Rotating second portal pair
+            let rotation_speed = time * 0.8;
+            let pos_a = Vec3::new(0.0, 1.0, -6.3);
+            let pos_b = Vec3::new(
+                1.4 + (rotation_speed * 2.0).cos() * 0.5,
+                1.0 + (rotation_speed).sin() * 0.3,
+                -1.0 + (rotation_speed * 1.5).sin() * 0.4
+            );
+            
+            let rot_a = Quat::from_rotation_y(rotation_speed) * Quat::from_rotation_arc(Vec3::Y, Vec3::Z);
+            let rot_b = Quat::from_rotation_y(-rotation_speed * 0.7) * 
+                       Quat::from_rotation_z(PI/2.0) * 
+                       Quat::from_rotation_y(-PI/2.0);
+            
+            scene.portal_pairs[1].animate_both(pos_a, rot_a, pos_b, rot_b);
+        }
+    }
+}
+
 
 
 fn view(app: &App, model: &Model, frame: Frame) {

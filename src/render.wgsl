@@ -250,20 +250,15 @@ struct HitInfo {
 
 fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
     var current_ray = ray;
-
-    var hit_info: HitInfo;
     var final_hit_info: HitInfo;
     final_hit_info.hit = false;
     final_hit_info.t = 1000.0;
 
     for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
-        hit_info = trace_ray_single_bounce(current_ray);
+        let hit_info = trace_ray_single_bounce(current_ray);
 
-        if (!hit_info.hit) {
-            break;
-        }
-    
-
+        // Check for portal intersections
+        var closest_portal_t = hit_info.t;
         var has_hit_portal = false;
         var in_portal: Portal;
         var out_portal: Portal;
@@ -274,61 +269,48 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
             let t_a = ray_portal_intersect(current_ray, portal_pair.portal_a);
             let t_b = ray_portal_intersect(current_ray, portal_pair.portal_b);
 
-            // Check if the portals should be the thing rendered
-            var hit_portal_a = t_a > 0.001 && t_a < hit_info.t;
-            var hit_portal_b = t_b > 0.001 && t_b < hit_info.t;
-
-            if (!hit_portal_a && !hit_portal_b) {
-                continue; // No valid intersection with either portal
-            }
-
-            has_hit_portal = true;
-
-            // Choose the closer portal
-            if (hit_portal_a && (!hit_portal_b || t_a < t_b)) {
+            // Check portal A
+            if (t_a > 0.001 && t_a < closest_portal_t) {
+                closest_portal_t = t_a;
+                has_hit_portal = true;
                 in_portal = portal_pair.portal_a;
                 out_portal = portal_pair.portal_b;
-                hit_info.t = t_a;
-            } else if (hit_portal_b) {
+            }
+
+            // Check portal B
+            if (t_b > 0.001 && t_b < closest_portal_t) {
+                closest_portal_t = t_b;
+                has_hit_portal = true;
                 in_portal = portal_pair.portal_b;
                 out_portal = portal_pair.portal_a;
-                hit_info.t = t_b;
             }
-            hit_info.color = vec3<f32>(1.0, 0.0, 0.0);
         }
 
         if (has_hit_portal) {
-            hit_info.hit = true;
-            hit_info.point = current_ray.origin + hit_info.t * current_ray.direction;
-
-            /*
-                The open side of a portal is the side with the normal pointing towards the viewer.
-                Things teleported through a portal emerge from the second portals open side.
-
-                Two portals placed back to back (normals pointing out both sides) will act as a doorway.
-
-                A ray hitting a portal in the same direction as the portal's normal will be entering from the back,
-                    and should be rendered as if it were hitting an ellipse.
-            */
+            let portal_hit_point = current_ray.origin + closest_portal_t * current_ray.direction;
             
-
-            // hit_info.color = get_ellipse_color(in_portal.ellipse, hit_info.point);
-            hit_info.normal = in_portal.ellipse.normal;
-            if (dot(current_ray.direction, in_portal.ellipse.normal) > 0.0 || bounce == max_bounces - 1u) {
-                break;
+            // Check if ray is entering portal (going against the normal)
+            if (dot(current_ray.direction, in_portal.ellipse.normal) < 0.0) {
+                // Ray is entering portal - transform it
+                current_ray = portal_ray(current_ray, closest_portal_t, in_portal, out_portal);
+                continue; // Continue with transformed ray
             } else {
-                // Ray is going into the portal, show the view through it
-                current_ray = portal_ray(current_ray, hit_info.t, in_portal, out_portal);
+                // Ray is hitting portal from behind - render as ellipse
+                final_hit_info.hit = true;
+                final_hit_info.t = closest_portal_t;
+                final_hit_info.point = portal_hit_point;
+                final_hit_info.normal = in_portal.ellipse.normal;
+                final_hit_info.color = get_ellipse_color(in_portal.ellipse, portal_hit_point);
+                break;
             }
         } else {
-            // hit_info.color = vec3<f32>(0.0, f32(bounce) / f32(max_bounces), 0.0);
+            // No portal hit, use the surface hit
+            final_hit_info = hit_info;
             break;
         }
     }
 
-
-    
-    return hit_info;
+    return final_hit_info;
 }
 
 fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
@@ -397,16 +379,10 @@ fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
     return hit_info;
 }
 
-
-
-
 // Calculate reflection direction
 fn reflect(incident: vec3<f32>, normal: vec3<f32>) -> vec3<f32> {
     return incident - 2.0 * dot(incident, normal) * normal;
 }
-
-
-
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
