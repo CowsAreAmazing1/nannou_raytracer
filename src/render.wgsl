@@ -410,7 +410,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let primary_ray = Ray(ray_origin, ray_direction);
     
     // Trace the ray
-    let hit_info = trace_ray(primary_ray, 15u);
+    let hit_info = trace_ray(primary_ray, 150u);
     
     var color = vec3<f32>(0.1, 0.2, 0.4); // Blue gradient background
     

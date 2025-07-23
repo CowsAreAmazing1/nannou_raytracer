@@ -437,7 +437,7 @@ impl SceneData {
 
         scene2.add_ellipse(
             Ellipse::new(
-                [0.0, 1.5, -4.0],
+                [-1.0, 1.7, -4.0],
                 [0.0, 0.0, 1.0],
                 e_a,
                 e_b,
@@ -449,7 +449,7 @@ impl SceneData {
 
         scene2.add_ellipse(
             Ellipse::new(
-                [2.0, 1.5, -4.1],
+                [1.0, 1.7, -4.1],
                 [0.0, 0.0, -1.0],
                 e_a,
                 e_b,
@@ -499,11 +499,18 @@ impl SceneData {
 
         scene3.add_portal_pair(
             PortalPair::new(
-                Portal::from_ellipse(
-                    scenes[1].ellipses[0],
+                Portal::new(
+                    scenes[1].ellipses[0].center.into(),
+                    Quat::from_rotation_arc(Vec3::Y, Vec3::Z),
+                    0.6,
+                    1.0,
                 ),
-                Portal::from_ellipse(
-                    scenes[1].ellipses[1],
+                Portal::new(
+                    scenes[1].ellipses[1]
+                    .center.into(),
+                    Quat::from_rotation_arc(Vec3::Y, Vec3::Z) * Quat::from_rotation_z(PI),
+                    0.6,
+                    1.0,
                 ),
             )
         );
@@ -616,69 +623,69 @@ impl SceneData {
         );
 
         scene5.add_plane(Plane::new_finite( // Red right
-            [1.5, 0.0 + 1.0, 0.0 - 5.0], 
+            [0.6, 0.0 + 1.0, 0.0 - 5.0], 
             [-1.0, 0.0, 0.0],
             [0.2, 0.0, 0.0],
             3.0,
-            3.0
+            3.0,
         ));
         scene5.add_plane(Plane::new_finite( // Red back
             [0.0, 0.0 + 1.0, -1.5 - 5.0], 
             [0.0, 0.0, 1.0],
             [0.8, 0.8, 0.8],
+            1.2,
             3.0,
-            3.0
         ));
         scene5.add_plane(Plane::new_finite( // Red left
-            [-1.5, 0.0 + 1.0, 0.0 - 5.0], 
+            [-0.6, 0.0 + 1.0, 0.0 - 5.0], 
             [1.0, 0.0, 0.0],
             [0.0, 0.6, 0.5],
             3.0,
-            3.0
+            3.0,
         ));
         scene5.add_plane(Plane::new_finite( // Red bottom
             [-0.0, -1.5 + 1.0, 0.0 - 5.0], 
             [0.0, 1.0, 0.0],
             [0.8, 0.8, 0.8],
             3.0,
-            3.0
+            1.2,
         ));
         scene5.add_plane(Plane::new_finite( // Red top
             [-0.0, 1.5 + 1.0, 0.0 - 5.0], 
             [0.0, -1.0, 0.0],
             [0.8, 0.8, 0.8],
             3.0,
-            3.0
+            1.2,
         ));
 
         scene5.add_portal_pair(PortalPair::new(
             Portal::new(
-                Vec3::new(-1.4, 0.0 + 1.0, 0.0 - 5.0),
+                Vec3::new(-0.55, 0.0 + 1.0, 0.0 - 5.0),
                 Quat::from_rotation_arc(Vec3::Y, Vec3::X),
-                1.0,
+                0.6,
                 1.0,
             ),
             Portal::new(
-                Vec3::new(1.4, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(Vec3::Y, -Vec3::X) * Quat::from_rotation_x(0.1),
-                1.0,
+                Vec3::new(0.55, 0.0 + 1.0, 0.0 - 5.0),
+                Quat::from_rotation_arc(Vec3::Y, -Vec3::X) * Quat::from_rotation_x(0.0),
+                0.6,
                 1.0,
             ),
         ));
-        scene5.add_portal_pair(PortalPair::new(
-            Portal::new(
-                Vec3::new(0.0, 0.0 + 1.0, -1.3 - 5.0),
-                Quat::from_rotation_arc(Vec3::Y, Vec3::Z),
-                1.0,
-                1.0,
-            ),
-            Portal::new(
-                Vec3::new(1.4, 0.0 + 1.0, 4.0 - 5.0),
-                Quat::from_rotation_z(PI/2.0) * Quat::from_rotation_y(-PI/2.0),
-                1.0,
-                1.0,
-            ),
-        ));
+        // scene5.add_portal_pair(PortalPair::new(
+        //     Portal::new(
+        //         Vec3::new(0.0, 0.0 + 1.0, -1.3 - 5.0),
+        //         Quat::from_rotation_arc(Vec3::Y, Vec3::Z),
+        //         1.0,
+        //         1.0,
+        //     ),
+        //     Portal::new(
+        //         Vec3::new(1.4, 0.0 + 1.0, 4.0 - 5.0),
+        //         Quat::from_rotation_z(PI/2.0) * Quat::from_rotation_y(-PI/2.0),
+        //         1.0,
+        //         1.0,
+        //     ),
+        // ));
 
         scenes.push(scene5);
         }
