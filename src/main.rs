@@ -2,106 +2,15 @@
 
 use nannou::prelude::*;
 use bytemuck::{Pod, Zeroable};
+use std::{collections::HashSet};
+
+mod scene;
+use scene::SceneData;
+
 
 
 fn main() {
     nannou::app(model).update(update).run();
-}
-
-
-
-// Scene Objects
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct Sphere {
-    center: [f32; 3],
-    radius: f32,
-    color: [f32; 3],
-    _padding: f32,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct Plane {
-    point: [f32; 3],
-    _padding1: f32,
-    normal: [f32; 3],
-    _padding2: f32,
-    color: [f32; 3],
-    _padding: f32,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct Ellipse {
-    center: [f32; 3],
-    _padding1: f32,
-    normal: [f32; 3],
-    _padding2: f32,
-    radius_a: f32,
-    radius_b: f32,
-    inner_radius_a: f32,
-    inner_radius_b: f32,
-    color: [f32; 3],
-    _padding: f32,
-}
-
-impl Default for Sphere {
-    fn default() -> Self {
-        Self {
-            center: [0.0; 3],
-            radius: 1.0,
-            color: [0.0; 3],
-            _padding: 0.0,
-        }
-    }
-}
-
-impl Default for Plane {
-    fn default() -> Self {
-        Self {
-            point: [0.0; 3],
-            _padding1: 0.0,
-            normal: [0.0, 1.0, 0.0],
-            _padding2: 0.0,
-            color: [0.0; 3],
-            _padding: 0.0,
-        }
-    }
-}
-
-impl Default for Ellipse {
-    fn default() -> Self {
-        Self {
-            center: [0.0; 3],
-            _padding1: 0.0,
-            normal: [0.0, 1.0, 0.0],
-            _padding2: 0.0,
-            radius_a: 0.0,
-            radius_b: 0.0,
-            inner_radius_a: 0.0,
-            inner_radius_b: 0.0,
-            color: [0.0; 3],
-            _padding: 0.0,
-        }
-    }
-}
-
-
-const MAX_SPHERES: usize = 8;
-const MAX_PLANES: usize = 4;
-const MAX_ELLIPSES: usize = 8;
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct SceneData {
-    sphere_count: u32,
-    plane_count: u32,
-    ellipse_count: u32,
-    _padding: u32,
-    spheres: [Sphere; MAX_SPHERES],
-    planes: [Plane; MAX_PLANES],
-    ellipses: [Ellipse; MAX_ELLIPSES],
 }
 
 #[repr(C)]
@@ -113,11 +22,50 @@ struct Uniforms {
     camera_pos: [f32; 3],
     _padding2: f32,
     camera_dir: [f32; 3],
-    _padding3: f32,
+    fov: f32,
 }
 
+struct Camera {
+    position: Vec3,
+    yaw: f32,
+    pitch: f32,
+    speed: f32,
+    sensitivity: f32,
+    fov_multiplier: f32,
+}
 
+impl Camera {
+    fn new() -> Self {
+        Self {
+            position: vec3(0.0, 1.0, 0.0),
+            yaw: -PI/2.0,
+            pitch: 0.0,
+            speed: 5.0,
+            sensitivity: 0.003,
+            fov_multiplier: 1.0,
+        }
+    }
 
+    fn forward(&self) -> Vec3 {
+        vec3(
+            self.yaw.cos() * self.pitch.cos(),
+            self.pitch.sin(),
+            self.yaw.sin() * self.pitch.cos(),
+        )
+    }
+
+    fn right(&self) -> Vec3 {
+        vec3(
+            (self.yaw - PI/2.0).cos(),
+            0.0,
+            (self.yaw - PI/2.0).sin(),
+        )
+    }
+
+    fn up(&self) -> Vec3 {
+        vec3(0.0, 1.0, 0.0)
+    }
+}
 
 
 struct Model {
@@ -126,6 +74,10 @@ struct Model {
     state: GpuState,
     current_scene: u32,
     scenes: Vec<SceneData>,
+    camera: Camera,
+    keys_pressed: HashSet<Key>,
+    mouse_locked: bool,
+    last_mouse_pos: Option<Vec2>,
 }
 
 struct GpuState {
@@ -138,147 +90,25 @@ struct GpuState {
 }
 
 impl Model {
-    fn create_scenes() -> Vec<SceneData> {
-        let mut scenes = Vec::new();
-
-        let mut scene1 = SceneData {
-            sphere_count: 0,
-            plane_count: 1,
-            ellipse_count: 4,
-            _padding: 0,
-            spheres: [Sphere::default(); MAX_SPHERES],
-            planes: [Plane::default(); MAX_PLANES],
-            ellipses: [Ellipse::default(); MAX_ELLIPSES],
-        };
-
-        scene1.planes[0] = Plane {
-            point: [0.0, -2.0, 0.0],
-            _padding1: 0.0,
-            normal: [0.0, 1.0, 0.0],
-            _padding2: 0.0,
-            color: [0.2, 0.2, 0.2],
-            _padding: 0.0,
-        };
-
-        let e_a = 2.0;
-        let e_b = 2.5;
-        let rim_thickness = 0.2;
-
-        scene1.ellipses[0] = Ellipse {
-            center: [0.0, 1.8, -4.0],
-            _padding1: 0.0,
-            normal: [0.0, -0.5, 1.0],
-            _padding2: 0.0,
-            radius_a: e_a,
-            radius_b: e_b,
-            inner_radius_a: e_a - rim_thickness,
-            inner_radius_b: e_b - rim_thickness,
-            color: [0.7, 0.4, 0.0],
-            _padding: 0.0,
-        };
-        scene1.ellipses[1] = Ellipse {
-            center: scene1.ellipses[0].center,
-            _padding1: 0.0,
-            normal: scene1.ellipses[0].normal,
-            _padding2: 0.0,
-            radius_a: scene1.ellipses[0].inner_radius_a,
-            radius_b: scene1.ellipses[0].inner_radius_b,
-            inner_radius_a: 0.0,
-            inner_radius_b: 0.0,
-            color: [
-                scene1.ellipses[0].color[0] - 0.2,
-                scene1.ellipses[0].color[1] - 0.2,
-                scene1.ellipses[0].color[2] - 0.2,
-            ],
-            _padding: 0.0,
-        };
-
-        scenes.push(scene1);
-        
-        // Scene 2: Sphere showcase
-        let mut scene2 = SceneData {
-            sphere_count: 3,
-            plane_count: 1,
-            ellipse_count: 0,
-            _padding: 0,
-            spheres: [Sphere::default(); MAX_SPHERES],
-            planes: [Plane::default(); MAX_PLANES],
-            ellipses: [Ellipse::default(); MAX_ELLIPSES],
-        };
-        
-        scene2.planes[0] = scene1.planes[0]; // Same ground
-        
-        scene2.spheres[0] = Sphere {
-            center: [-1.5, -1.0, -4.0],
-            radius: 1.0,
-            color: [0.9, 0.9, 0.9],
-            _padding: 0.0,
-        };
-        
-        scene2.spheres[1] = Sphere {
-            center: [1.0, -1.0, -3.0],
-            radius: 1.0,
-            color: [0.3, 0.3, 1.0],
-            _padding: 0.0,
-        };
-        
-        scene2.spheres[2] = Sphere {
-            center: [0.0, 0.5, -5.0],
-            radius: 0.8,
-            color: [0.3, 1.0, 0.3],
-            _padding: 0.0,
-        };
-        
-        scenes.push(scene2);
-
-        scenes
-    }
-
     fn switch_scene(&mut self, scene_id: u32) {
         if scene_id < self.scenes.len() as u32 {
             self.current_scene = scene_id;
         }
     }
-
-    fn animate_scene(&mut self, time: f32) {
-        match self.current_scene {
-            0 => {
-                // Animate ellipse scene
-                if self.scenes[0].ellipse_count > 0 {
-                    let rotation = time * 0.5;
-                    self.scenes[0].ellipses[0].normal = [
-                        rotation.sin() * 0.5,
-                        -0.5,
-                        rotation.cos(),
-                    ];
-                    self.scenes[0].ellipses[1].normal = [
-                        rotation.sin() * 0.5,
-                        -0.5,
-                        rotation.cos(),
-                    ];
-                }
-            }
-            1 => {
-                // Animate sphere scene
-                if self.scenes[1].sphere_count > 2 {
-                    let bounce = (time * 2.0).sin() * 0.5;
-                    self.scenes[1].spheres[2].center[1] = 0.5 + bounce;
-                }
-            }
-            _ => {}
-        }
-    }
 }
 
-
-
-
 fn model(app: &App) -> Model {
-    let window_id = app.new_window().view(view).key_pressed(key_pressed).build().unwrap();
+    let window_id = app.new_window()
+        .view(view)
+        .key_pressed(key_pressed)
+        .key_released(key_released)
+        .mouse_pressed(mouse_pressed)
+        .mouse_moved(mouse_moved)
+        .build().unwrap();
     let window = app.window(window_id).unwrap();
     let device = window.device();
 
-    let scenes = Model::create_scenes();
+    let scenes = SceneData::create_scenes();
 
     // Create uniform buffer
     let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -390,26 +220,92 @@ fn model(app: &App) -> Model {
         },
         current_scene: 0,
         scenes,
+        camera: Camera::new(),
+        keys_pressed: HashSet::new(),
+        mouse_locked: false,
+        last_mouse_pos: None,
     }
 }
 
 fn key_pressed(_app: &App, model: &mut Model, key: Key) {
+    model.keys_pressed.insert(key);
+
     match key {
         Key::Key1 => {
             model.switch_scene(0);
             println!("Switched to Scene 1: Ellipse Showcase");
         },
-        Key::Key2 => {
-            model.switch_scene(1);
-            println!("Switched to Scene 2: Sphere Showcase");
-        },
+        // Key::Key2 => {
+        //     model.switch_scene(1);
+        //     println!("Switched to Scene 2: Sphere Showcase");
+        // },
+        Key::Tab => {
+            model.mouse_locked = !model.mouse_locked;
+            model.last_mouse_pos = None;
+            println!("Mouse lock {}", if model.mouse_locked { "ON" } else { "OFF" });
+        }
         _ => {}
     }
 }
 
-fn update(app: &App, model: &mut Model, _update: Update) {
-    // Animate the current scene
-    model.animate_scene(app.time);
+fn key_released(_app: &App, model: &mut Model, key: Key) {
+    model.keys_pressed.remove(&key);
+}
+
+fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) {
+    if !model.mouse_locked {
+        model.mouse_locked = true;
+        model.last_mouse_pos = None;
+
+        let window = app.window(model.window_id).unwrap();
+        let _ = window.set_cursor_grab(true);
+        window.set_cursor_visible(false);
+
+        println!("Mouse locked");
+    }
+}
+
+fn mouse_moved(_app: &App, model: &mut Model, pos: Point2) {
+    if model.mouse_locked {
+        if let Some(last_pos) = model.last_mouse_pos {
+            let mouse_delta = vec2(pos.x, pos.y) - last_pos;
+            model.camera.yaw += mouse_delta.x * model.camera.sensitivity;
+            model.camera.pitch += mouse_delta.y * model.camera.sensitivity;
+
+            model.camera.pitch = model.camera.pitch.clamp(-PI / 2.0 + 0.1, PI / 2.0 - 0.1);
+        }
+        model.last_mouse_pos = Some(vec2(pos.x, pos.y));
+    }
+}
+
+fn update(_app: &App, model: &mut Model, update: Update) {
+    let dt = update.since_last.as_secs_f32();
+
+    let mut movement = Vec3::ZERO;
+
+    if model.keys_pressed.contains(&Key::W) {
+        movement += model.camera.forward();
+    }
+    if model.keys_pressed.contains(&Key::A) {
+        movement += model.camera.right();
+    }
+    if model.keys_pressed.contains(&Key::S) {
+        movement -= model.camera.forward();
+    }
+    if model.keys_pressed.contains(&Key::D) {
+        movement -= model.camera.right();
+    }
+    if model.keys_pressed.contains(&Key::Space) {
+        movement += model.camera.up();
+    }
+    if model.keys_pressed.contains(&Key::LShift) {
+        movement -= model.camera.up();
+    }
+
+    if movement.length() > 0.0 {
+        movement = movement.normalize() * model.camera.speed * dt;
+        model.camera.position += movement;
+    }
 }
 
 
@@ -418,25 +314,14 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
     let queue = window.queue();
 
-    // Mouse-controlled orbital camera
-    let mouse = app.mouse.position();
-    let window_size = window.inner_size_points();
-    
-    // Normalize mouse position to -1.0 to 1.0 range
-    let mouse_x = (mouse.x / (window_size.0 * 0.5)) as f32;
-    let mouse_y = (mouse.y / (window_size.1 * 0.5)) as f32;
-    
-    // Calculate orbital angles from mouse position
-    let horizontal_angle = mouse_x * std::f32::consts::PI; // Full rotation left/right
-    let vertical_angle = (mouse_y * 0.5 + 0.3) * std::f32::consts::PI * 0.3; // Limited vertical range
-    
-    // Calculate camera position in spherical coordinates
-    let camera_radius = 8.0;
     let camera_pos = [
-        camera_radius * horizontal_angle.cos() * vertical_angle.cos(),
-        camera_radius * vertical_angle.sin() + 1.0, // Offset up slightly
-        camera_radius * horizontal_angle.sin() * vertical_angle.cos(),
+        model.camera.position.x,
+        model.camera.position.y,
+        model.camera.position.z,
     ];
+
+    let camera_forward = model.camera.forward();
+    let camera_dir = [camera_forward.x, camera_forward.y, camera_forward.z];
 
     // Update uniforms
     let (w, h) = window.inner_size_pixels();
@@ -446,8 +331,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
         scene_id: model.current_scene,
         camera_pos,
         _padding2: 0.0,
-        camera_dir: [0.0, 0.0, -1.0],
-        _padding3: 0.0,
+        camera_dir,
+        fov: model.camera.fov_multiplier,
     };
 
     let scene_data = model.scenes[model.current_scene as usize];
@@ -480,6 +365,6 @@ fn view(app: &App, model: &Model, frame: Frame) {
     }
     queue.submit(Some(encoder.finish()));
 
-    let draw = app.draw();
-    draw.to_frame(app, &frame).unwrap();
+    // let draw = app.draw();
+    // draw.to_frame(app, &frame).unwrap();
 }

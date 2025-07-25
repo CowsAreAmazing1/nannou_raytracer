@@ -6,8 +6,8 @@ struct Uniforms {
     scene_id: u32,
     camera_pos: vec3<f32>,
     _padding2: f32,
-    // camera_dir: vec3<f32>,
-    // _padding3: f32,
+    camera_dir: vec3<f32>,
+    fov: f32,
 }
 
 struct Sphere {
@@ -23,7 +23,11 @@ struct Plane {
     normal: vec3<f32>,
     _padding2: f32,
     color: vec3<f32>,
-    reflectivity: f32,
+    _padding3: f32,
+    width: f32,
+    height: f32,
+    is_infinite: f32, // 0.0 for finite, 1.0 for infinite
+    _padding4: f32,
 }
 
 struct Ellipse {
@@ -33,10 +37,12 @@ struct Ellipse {
     _padding2: f32,
     radius_a: f32,
     radius_b: f32,
-    inner_radius_a: f32,
-    inner_radius_b: f32,
+    border_thickness: f32,
+    _padding3: f32,
     color: vec3<f32>,
-    reflectivity: f32,
+    _padding4: f32,
+    border_color: vec3<f32>,
+    _padding5: f32,
 }
 
 struct SceneData {
@@ -109,7 +115,7 @@ fn ray_plane_intersect(ray: Ray, plane: Plane) -> f32 {
 
 fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
     // First, intersect with the plane containing the ellipse
-    let plane = Plane(ellipse.center, 0.0, ellipse.normal, 0.0, ellipse.color, ellipse.reflectivity);
+    let plane = Plane(ellipse.center, 0.0, ellipse.normal, 0.0, ellipse.color, 0.0, 0.0, 0.0, 1.0, 0.0);
     let t = ray_plane_intersect(ray, plane);
     
     if (t < 0.0) {
@@ -145,16 +151,38 @@ fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
     if (outer_test > 1.0) {
         return -1.0; // Outside outer ellipse
     }
-    
-    // Check if point is outside inner ellipse (for ring shape)
-    let inner_test = (u * u) / (ellipse.inner_radius_a * ellipse.inner_radius_a) + 
-                     (v * v) / (ellipse.inner_radius_b * ellipse.inner_radius_b);
-    
-    if (inner_test < 1.0) {
-        return -1.0; // Inside inner ellipse (hole)
-    }
-    
+
     return t; // Valid intersection with the ring
+}
+
+fn get_ellipse_color(ellipse: Ellipse, hit_point: vec3<f32>) -> vec3<f32> {
+    return add_border(ellipse, hit_point, ellipse.color);
+}
+
+fn add_border(ellipse: Ellipse, hit_point: vec3<f32>, ellipse_color: vec3<f32>) -> vec3<f32> {
+    let local_point = hit_point - ellipse.center;
+
+    let up = vec3<f32>(0.0, 1.0, 0.0);
+    var u_axis: vec3<f32>;
+    if (abs(dot(ellipse.normal, up)) < 0.9) {
+        u_axis = normalize(cross(ellipse.normal, up));
+    } else {
+        u_axis = normalize(cross(ellipse.normal, vec3<f32>(1.0, 0.0, 0.0)));
+    }
+    let v_axis = cross(ellipse.normal, u_axis);
+
+    let u = dot(local_point, u_axis);
+    let v = dot(local_point, v_axis);
+
+    let distance_from_center = sqrt((u * u) / (ellipse.radius_a * ellipse.radius_a) + 
+                                    (v * v) / (ellipse.radius_b * ellipse.radius_b));
+
+    let border_start = 1.0 - ellipse.border_thickness;
+    if (distance_from_center > border_start) {
+        return ellipse.border_color;
+    }
+
+    return ellipse_color;
 }
 
 //////////////////////////////////////////
@@ -165,7 +193,7 @@ struct HitInfo {
     point: vec3<f32>,
     normal: vec3<f32>,
     color: vec3<f32>,
-    reflectivity: f32,
+    _padding: f32,
 }
 
 fn trace_ray(ray: Ray) -> HitInfo {
@@ -183,8 +211,6 @@ fn trace_ray(ray: Ray) -> HitInfo {
             hit_info.point = ray.origin + t * ray.direction;
             hit_info.normal = plane.normal;
             hit_info.color = plane.color;
-            hit_info.reflectivity = plane.reflectivity;
-
 
             // Checker
             let world_pos = hit_info.point;
@@ -213,7 +239,6 @@ fn trace_ray(ray: Ray) -> HitInfo {
             hit_info.point = ray.origin + t * ray.direction;
             hit_info.normal = normalize(hit_info.point - sphere.center);
             hit_info.color = sphere.color;
-            hit_info.reflectivity = sphere.reflectivity;
         }
     }
     
@@ -227,7 +252,6 @@ fn trace_ray(ray: Ray) -> HitInfo {
             hit_info.point = ray.origin + t * ray.direction;
             hit_info.normal = ellipse.normal;
             hit_info.color = ellipse.color;
-            hit_info.reflectivity = ellipse.reflectivity;
         }
     }
     
@@ -249,12 +273,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     
     // Use camera position from uniforms (controlled by mouse in Rust)
     let ray_origin = uniforms.camera_pos;
-    
-    // Look-at target (center of our scene)
-    let camera_target = vec3<f32>(0.0, -0.5, -4.0);
-    
+        
     // Create camera coordinate system
-    let camera_forward = normalize(camera_target - ray_origin);
+    let camera_forward = normalize(uniforms.camera_dir);
+
     let world_up = vec3<f32>(0.0, 1.0, 0.0);
     let camera_right = normalize(cross(camera_forward, world_up));
     let camera_up = cross(camera_right, camera_forward);
@@ -262,8 +284,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Calculate ray direction using camera coordinate system
     let ray_direction = normalize(
         camera_forward + 
-        uv.x * camera_right * 0.8 +  // FOV control (smaller = more zoomed in)
-        uv.y * camera_up * 0.8
+        uv.x * camera_right * uniforms.fov +
+        uv.y * camera_up * uniforms.fov
     );
     
     let primary_ray = Ray(ray_origin, ray_direction);
@@ -281,28 +303,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
     let diffuse = max(dot(hit.normal, light_dir), 0.1);
     var final_color = hit.color * diffuse;
-    
-    // Add reflection if the surface is reflective
-    if (hit.reflectivity > 0.0) {
-        let reflection_dir = reflect(primary_ray.direction, hit.normal);
-        let reflection_ray = Ray(hit.point + hit.normal * 0.001, reflection_dir); // Offset to prevent self-intersection
-        
-        let reflection_hit = trace_ray(reflection_ray);
-        
-        if (reflection_hit.hit) {
-            // Calculate lighting for reflected surface
-            let reflected_diffuse = max(dot(reflection_hit.normal, light_dir), 0.1);
-            let reflection_color = reflection_hit.color * reflected_diffuse;
-            
-            // Blend the reflection with the surface color
-            final_color = mix(final_color, reflection_color, hit.reflectivity);
-        } else {
-            // Reflect the background
-            let bg_gradient = reflection_dir.y * 0.5 + 0.5;
-            let bg_color = vec3<f32>(0.1, 0.2, 0.3 + bg_gradient * 0.3);
-            final_color = mix(final_color, bg_color, hit.reflectivity);
-        }
-    }
     
     return vec4<f32>(final_color, 1.0);
 }

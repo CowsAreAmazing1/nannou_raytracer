@@ -1,2 +1,4 @@
 /target
 /src/sdfs.glsl
+/src/temp.rs
+/src/scene_builder.rs
