@@ -2,7 +2,7 @@
 
 use nannou::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use std::collections::HashSet;
+use std::{collections::HashSet};
 
 mod scene;
 use scene::SceneData;
@@ -27,7 +27,7 @@ struct Uniforms {
     camera_pos: [f32; 3],
     _padding2: f32,
     camera_dir: [f32; 3],
-    _padding3: f32,
+    fov: f32,
 }
 
 struct Camera {
@@ -36,6 +36,7 @@ struct Camera {
     pitch: f32,
     speed: f32,
     sensitivity: f32,
+    fov_multiplier: f32,
 }
 
 impl Camera {
@@ -46,6 +47,7 @@ impl Camera {
             pitch: 0.0,
             speed: 5.0,
             sensitivity: 0.003,
+            fov_multiplier: 1.0,
         }
     }
 
@@ -67,6 +69,136 @@ impl Camera {
 
     fn up(&self) -> Vec3 {
         vec3(0.0, 1.0, 0.0)
+    }
+
+    fn shader_camera_right(&self) -> Vec3 {
+        let camera_forward = self.forward();
+        let world_up = Vec3::Y;
+        camera_forward.cross(world_up).normalize()
+    }
+
+    fn shader_camera_up(&self) -> Vec3 {
+        let camera_right = self.shader_camera_right();
+        let camera_forward = self.forward();
+        camera_right.cross(camera_forward)
+    }
+    
+    fn world_to_screen(&self, world_pos: Vec3, screen_size: Vec2) -> Option<Vec2> {
+        // Transform to camera space
+        let relative_pos = world_pos - self.position;
+        
+        let camera_forward = self.forward();
+        let camera_right = self.shader_camera_right();
+        let camera_up = self.shader_camera_up();
+        
+        // Project onto camera plane
+        let forward_dist = relative_pos.dot(camera_forward);
+        
+        // Check if behind camera
+        if forward_dist <= 0.1 {
+            return None;
+        }
+        
+        // Project to camera's right/up plane
+        let right_offset = relative_pos.dot(camera_right);
+        let up_offset = relative_pos.dot(camera_up);
+        
+        // Perspective
+        let aspect_ratio = screen_size.x / screen_size.y;
+        
+        // Convert to UV coordinates like the shader does
+        let fov_radians = 2.0 * self.fov_multiplier.atan();
+        let uv_x = (right_offset / forward_dist) / fov_radians;
+        let uv_y = (up_offset    / forward_dist) / fov_radians;
+        
+        // Apply aspect ratio correction like shader
+        let corrected_uv_x = uv_x / aspect_ratio;
+        
+        // Convert to screen coordinates
+        let screen_x = corrected_uv_x * screen_size.x * 0.5;
+        let screen_y = uv_y * screen_size.y * 0.5; // Flip Y for Nannou
+        
+        // Check bounds
+        if screen_x.abs() > screen_size.x * 0.5 || screen_y.abs() > screen_size.y * 0.5 {
+            return None;
+        }
+        
+        Some(vec2(screen_x, screen_y))
+    }
+
+    fn world_to_screen_unbounded(&self, world_pos: Vec3, screen_size: Vec2) -> Option<Vec2> {
+        let relative_pos = world_pos - self.position;
+        
+        let camera_forward = self.forward();
+        let camera_right = self.shader_camera_right();
+        let camera_up = self.shader_camera_up();
+        
+        let forward_dist = relative_pos.dot(camera_forward);
+        
+        // Check if behind camera
+        if forward_dist <= 0.1 {
+            return None;
+        }
+        
+        let right_offset = relative_pos.dot(camera_right);
+        let up_offset = relative_pos.dot(camera_up);
+        
+        let aspect_ratio = screen_size.x / screen_size.y;
+        let fov_radians = 2.0 * self.fov_multiplier.atan();
+        let uv_x = (right_offset / forward_dist) / fov_radians;
+        let uv_y = (up_offset / forward_dist) / fov_radians;
+        
+        let corrected_uv_x = uv_x / aspect_ratio;
+        let screen_x = corrected_uv_x * screen_size.x * 0.5;
+        let screen_y = uv_y * screen_size.y * 0.5;
+        
+        Some(vec2(screen_x, screen_y))
+    }
+
+    fn clip_ray_to_screen(visible_point: Vec3, invisible_point: Vec3, camera: &Camera, screen_size: Vec2) -> Option<Vec2> {
+        let ray_dir = (invisible_point - visible_point).normalize();
+        let screen_bounds = vec2(screen_size.x * 0.5, screen_size.y * 0.5);
+        
+        // Sample points along the ray to find screen intersection
+        for i in 1..100 {
+            let t = i as f32 * 0.1;
+            let test_point = visible_point + ray_dir * t;
+            
+            if let Some(screen_pos) = camera.world_to_screen_unbounded(test_point, screen_size) {
+                // Check if we've reached screen bounds
+                if screen_pos.x.abs() >= screen_bounds.x || screen_pos.y.abs() >= screen_bounds.y {
+                    // Clamp to screen bounds
+                    let clamped_x = screen_pos.x.clamp(-screen_bounds.x, screen_bounds.x);
+                    let clamped_y = screen_pos.y.clamp(-screen_bounds.y, screen_bounds.y);
+                    return Some(vec2(clamped_x, clamped_y));
+                }
+            }
+        }
+        None
+    }
+
+    fn clip_line_segment_to_screen(start: Vec3, end: Vec3, camera: &Camera, screen_size: Vec2) -> Option<(Vec2, Vec2)> {
+        let screen_bounds = vec2(screen_size.x * 0.5, screen_size.y * 0.5);
+        let mut clipped_points = Vec::new();
+        
+        // Sample points along the line segment
+        for i in 0..=50 {
+            let t = i as f32 / 50.0;
+            let test_point = start + t * (end - start);
+            
+            if let Some(screen_pos) = camera.world_to_screen_unbounded(test_point, screen_size) {
+                // Check if point is within screen bounds
+                if screen_pos.x.abs() <= screen_bounds.x && screen_pos.y.abs() <= screen_bounds.y {
+                    clipped_points.push(screen_pos);
+                }
+            }
+        }
+        
+        if clipped_points.len() >= 2 {
+            Some((clipped_points[0], clipped_points[clipped_points.len() - 1]))
+        } else {
+            None
+        }
     }
 }
 
@@ -90,8 +222,7 @@ struct Model {
     mouse_locked: bool,
     last_mouse_pos: Option<Vec2>,
 
-    debug_ray: Option<DebugRay>,
-    debug_ray_active: bool,
+    debug_rays: Vec<DebugRay>,
 }
 
 
@@ -235,8 +366,7 @@ fn model(app: &App) -> Model {
         mouse_locked: false,
         last_mouse_pos: None,
 
-        debug_ray: None,
-        debug_ray_active: false,
+        debug_rays: Vec::new(),
     }
 }
 
@@ -277,8 +407,15 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
             shoot_debug_ray(model);
         }
         Key::C => {
-            model.debug_ray = None;
-            model.debug_ray_active = false;
+            model.debug_rays = Vec::new();
+        }
+        Key::Equals => {
+            model.camera.fov_multiplier = (model.camera.fov_multiplier + 0.01).min(3.0);
+            println!("FOV: {:.2}", model.camera.fov_multiplier);
+        }
+        Key::Minus => {
+            model.camera.fov_multiplier = (model.camera.fov_multiplier - 0.01).max(0.1);
+            println!("FOV: {:.2}", model.camera.fov_multiplier);
         }
         _ => {}
     }
@@ -419,6 +556,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     // Update uniforms
     let (w, h) = window.inner_size_pixels();
+    let screen_size = vec2(w as f32, h as f32);
+
     let uniforms = Uniforms {
         resolution: [w as f32, h as f32],
         time: app.time,
@@ -426,7 +565,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         camera_pos,
         _padding2: 0.0,
         camera_dir,
-        _padding3: 0.0,
+        fov: model.camera.fov_multiplier,
     };
 
     let scene_data = model.scenes[model.current_scene as usize];
@@ -461,18 +600,69 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
 
 
-    // let draw = app.draw();
+    let draw = app.draw();
 
-    // if let Some(ref debug_ray) = model.debug_ray {
-    //     for segment in &debug_ray.segments {
-    //         draw.line()
-    //             .start(pt3(segment.start.x, segment.start.y, segment.start.z))
-    //             .end(pt3(segment.end.x, segment.end.y, segment.end.z))
-    //             .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-    //             .weight(2.0);
-    //     }
-    // }
+    for ray in model.debug_rays.iter() {
+        for segment in &ray.segments {
+            // Try to get screen positions for both points
+            let start_2d = model.camera.world_to_screen(segment.start, screen_size);
+            let end_2d = model.camera.world_to_screen(segment.end, screen_size);
+            
+            // Handle different visibility cases
+            match (start_2d, end_2d) {
+                // Both points visible - draw normally
+                (Some(start), Some(end)) => {
+                    draw.line()
+                        .start(pt2(start.x, start.y))
+                        .end(pt2(end.x, end.y))
+                        .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                        .weight(3.0);
+                }
+                // Only start visible - clip to screen edge
+                (Some(start), None) => {
+                    if let Some(clipped_end) = Camera::clip_ray_to_screen(segment.start, segment.end, &model.camera, screen_size) {
+                        draw.line()
+                            .start(pt2(start.x, start.y))
+                            .end(pt2(clipped_end.x, clipped_end.y))
+                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                            .weight(3.0);
+                    }
+                }
+                // Only end visible - clip from screen edge
+                (None, Some(end)) => {
+                    if let Some(clipped_start) = Camera::clip_ray_to_screen(segment.end, segment.start, &model.camera, screen_size) {
+                        draw.line()
+                            .start(pt2(clipped_start.x, clipped_start.y))
+                            .end(pt2(end.x, end.y))
+                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                            .weight(3.0);
+                    }
+                }
+                // Neither visible - try to find screen intersection
+                (None, None) => {
+                    if let Some((clipped_start, clipped_end)) = Camera::clip_line_segment_to_screen(
+                        segment.start, segment.end, &model.camera, screen_size
+                    ) {
+                        draw.line()
+                            .start(pt2(clipped_start.x, clipped_start.y))
+                            .end(pt2(clipped_end.x, clipped_end.y))
+                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                            .weight(3.0);
+                    }
+                }
+            }
+        }
 
+        if let Some(ref first_segment) = ray.segments.first() {
+            if let Some(origin_2d) = model.camera.world_to_screen(first_segment.start, screen_size) {
+                draw.ellipse()
+                    .xy(pt2(origin_2d.x, origin_2d.y))
+                    .radius(5.0)
+                    .color(RED);
+            }
+        }
+    }
+    
 
-    // draw.to_frame(app, &frame).unwrap();
+    draw.to_frame(app, &frame).unwrap();
 }

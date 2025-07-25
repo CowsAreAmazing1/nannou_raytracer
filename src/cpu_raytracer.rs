@@ -8,17 +8,17 @@ pub struct DebugRay {
     pub segments: Vec<RaySegment>,
 }
 
-struct RaySegment {
+pub struct RaySegment {
     pub start: Vec3,
     pub end: Vec3,
     pub color: [f32; 3],
-    segment_type: RaySegmentType,
+    // segment_type: RaySegmentType,
 }
 
-enum RaySegmentType {
-    Primary,
-    ThroughPortal,
-}
+// enum RaySegmentType {
+//     Primary,
+//     ThroughPortal,
+// }
 
 struct HitInfoCpu {
     hit: bool,
@@ -30,18 +30,39 @@ struct HitInfoCpu {
 
 pub fn shoot_debug_ray(model: &mut Model) {
     let camera = &model.camera;
-    let ray_origin = camera.position;
-    let ray_direction = camera.forward();
 
-    let debug_ray = trace_debug_ray(
-        &model.scenes[model.current_scene as usize],
-        ray_origin,
-        ray_direction,
-        10,
-    );
+    let camera_forward = camera.forward();
+    let world_up = Vec3::Y;
+    let camera_right = camera_forward.cross(world_up).normalize();
+    let camera_up = camera_right.cross(camera_forward);
 
-    model.debug_ray = Some(debug_ray);
-    model.debug_ray_active = true;
+    let mut debug_rays = vec![];
+
+    let m = 0.2;
+    let res_x = 3;
+    let res_y = 3;
+
+    for x in 0..res_x {
+        for y in 0..res_y {
+            let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
+            let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
+
+            let ray_direction = (camera_forward + 
+                                uv_x * camera_right * camera.fov_multiplier +
+                                uv_y * camera_up * camera.fov_multiplier).normalize();
+
+            let debug_ray = trace_debug_ray(
+                &model.scenes[model.current_scene as usize],
+                camera.position,
+                ray_direction,
+                10
+            );
+
+            debug_rays.push(debug_ray);
+        }
+    }
+
+    model.debug_rays.append(&mut debug_rays);
 }
 
 fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces: u32) -> DebugRay {
@@ -57,7 +78,7 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
                 start: current_ray_origin,
                 end: current_ray_origin + current_ray_direction * 20.0,
                 color: if bounce == 0 { [1.0, 1.0, 0.0] } else { [0.0, 1.0, 1.0] },
-                segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
+                // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
             });
             break;
         }
@@ -82,7 +103,7 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
                             start: current_ray_origin,
                             end: portal_hit_point,
                             color: if bounce == 0 { [1.0, 1.0, 0.0] } else { [0.0, 1.0, 1.0] },
-                            segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
+                            // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
                         });
 
                         let transformed_point = transform_point_through_portal(portal_hit_point, in_portal, out_portal);
@@ -106,7 +127,7 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
                 start: current_ray_origin,
                 end: hit_info.point,
                 color: if bounce == 0 { [1.0, 1.0, 0.0] } else { [0.0, 1.0, 1.0] },
-                segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal }, 
+                // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal }, 
             });
             break;
         }
@@ -169,7 +190,22 @@ fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) 
     // Check finite plane bounds if needed
     if plane.is_infinite < 0.5 {
         let hit_point = ray_origin + t * ray_direction;
+        let local_point = hit_point - plane_point;
         // Add finite plane intersection logic here
+
+        let u_axis = if plane_normal.dot(Vec3::Y).abs() < 0.9 {
+            plane_normal.cross(Vec3::Y).normalize()
+        } else {
+            plane_normal.cross(Vec3::X).normalize()
+        };
+        let v_axis = plane_normal.cross(u_axis);
+
+        let u = local_point.dot(u_axis);
+        let v = local_point.dot(v_axis);
+
+        if u.abs() > plane.width * 0.5 || v.abs() > plane.height * 0.5 {
+            return -1.0; // Outside bounds
+        }
     }
     
     t
