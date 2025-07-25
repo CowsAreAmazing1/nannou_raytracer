@@ -2,6 +2,7 @@
 // #![allow(dead_code)]
 
 use bytemuck::{Pod, Zeroable};
+use nannou::color::*;
 
 
 
@@ -70,7 +71,7 @@ impl Default for Plane {
 }
 
 impl Plane {
-    fn new(point: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
+    pub fn new(point: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
         Self {
             point,
             _padding1: 0.0,
@@ -85,7 +86,7 @@ impl Plane {
         }
     }
 
-    fn new_finite(point: [f32; 3], normal: [f32; 3], color: [f32; 3], width: f32, height: f32) -> Self {
+    pub fn new_finite(point: [f32; 3], normal: [f32; 3], color: [f32; 3], width: f32, height: f32) -> Self {
         Self {
             point,
             _padding1: 0.0,
@@ -141,7 +142,7 @@ impl Default for Ellipse {
 }
 
 impl Ellipse {
-    fn new(center: [f32; 3], normal: [f32; 3], radius_a: f32, radius_b: f32, border_thickness: f32, color: [f32; 3], border_color: [f32; 3]) -> Self {
+    pub fn new(center: [f32; 3], normal: [f32; 3], radius_a: f32, radius_b: f32, border_thickness: f32, color: [f32; 3], border_color: [f32; 3]) -> Self {
         Self {
             center,
             _padding1: 0.0,
@@ -160,9 +161,9 @@ impl Ellipse {
 }
 
 
-const MAX_SPHERES: usize = 8;
-const MAX_PLANES: usize = 4;
-const MAX_ELLIPSES: usize = 8;
+const MAX_SPHERES: usize = 10;
+const MAX_PLANES: usize = 10;
+const MAX_ELLIPSES: usize = 10;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -203,7 +204,7 @@ impl SceneData {
         }
     }
 
-    fn add_sphere(&mut self, sphere: Sphere) {
+    pub fn add_sphere(&mut self, sphere: Sphere) {
         if self.sphere_count < MAX_SPHERES as u32 {
             self.spheres[self.sphere_count as usize] = sphere;
             self.sphere_count += 1;
@@ -212,8 +213,7 @@ impl SceneData {
         }
     }
 
-    fn add_plane(&mut self, plane: Plane) {
-        print!("Adding plane");
+    pub fn add_plane(&mut self, plane: Plane) {
         if self.plane_count < MAX_PLANES as u32 {
             self.planes[self.plane_count as usize] = plane;
             self.plane_count += 1;
@@ -222,7 +222,7 @@ impl SceneData {
         }
     }
 
-    fn add_ellipse(&mut self, ellipse: Ellipse) {
+    pub fn add_ellipse(&mut self, ellipse: Ellipse) {
         if self.ellipse_count < MAX_ELLIPSES as u32 {
             self.ellipses[self.ellipse_count as usize] = ellipse;
             self.ellipse_count += 1;
@@ -232,99 +232,79 @@ impl SceneData {
     }
 
     pub fn create_scenes() -> Vec<SceneData> {
+        use crate::scene_builder::SceneBuilder;
+        
         let mut scenes = Vec::new();
 
-        let e_a = 0.6;
-        let e_b = 1.0;
-        let rim_thickness = 0.1;
-
-        {
-        let mut scene1 = SceneData::new(0, 1, 2);
-
-        scene1.add_plane(
-            Plane::new(
-                [0.0, -5.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.2, 0.0, 0.0],
-            )
-        );
-
-        scene1.add_ellipse(
-            Ellipse::new(
-                [1.5, 1.0, -4.0],
-                [0.0, -0.5, 1.0],
-                e_a,
-                e_b,
-                rim_thickness,
-                [0.7, 0.4, 0.0],
-                [0.0, 0.0, 0.0],
-            )
-        );
-
-        scene1.add_ellipse(
-            Ellipse::new(
-                [-1.5, 1.0, -4.0],
-                [0.0, -0.5, 1.0],
-                e_a,
-                e_b,
-                rim_thickness,
-                [0.0, 0.4, 0.7],
-                [0.0, 0.0, 0.0],
-            )
-        );
-
+        // Scene 1: Portal scene (your original)
+        let scene1 = SceneBuilder::portal_scene().build();
         scenes.push(scene1);
-        }
+
+        // Scene 2: Cornell box with spheres
+        let scene2 = SceneBuilder::cornell_box()
+            .sphere().at(-1.0, -1.0, -3.0).radius(0.8).red().build()
+            .sphere().at(1.0, -1.0, -3.0).radius(0.8).blue().build()
+            .sphere().at(0.0, 0.0, -2.0).radius(0.5).white().build()
+            .build();
+        scenes.push(scene2);
+
+        // Scene 3: Grid of spheres
+        let scene3 = SceneBuilder::new()
+            .ground_plane(-2.0, [0.1, 0.1, 0.1])
+            .spheres_grid(3, 3, 2.0, 0.5, [0.8, 0.2, 0.2])
+            .build();
+        scenes.push(scene3);
+
+        // Scene 4: Mixed objects demo
+        let scene4 = SceneBuilder::new()
+            .ground_plane(-3.0, [0.3, 0.3, 0.3])
+            .sphere().at(-2.0, 0.0, -5.0).radius(1.0).color(1.0, 0.3, 0.3).build()
+            .sphere().at(2.0, 0.0, -5.0).radius(1.0).color(0.3, 1.0, 0.3).build()
+            .ellipse()
+                .at(0.0, 1.0, -4.0)
+                .normal(0.0, 0.0, 1.0)
+                .radii(1.5, 0.8)
+                .color(1.0, 1.0, 0.3)
+                .border(0.1, 0.1, 0.1, 0.1)
+                .build()
+            .plane()
+                .at(0.0, 0.0, -7.0)
+                .normal(0.0, 0.0, 1.0)
+                .color(0.2, 0.2, 0.5)
+                .infinite()
+                .build()
+            .build();
+        scenes.push(scene4);
+
+        // Scene 5: Color tester
+        let scene5 = SceneBuilder::new()
+            .sphere()
+                .at(0.0, 0.0, 0.0)
+                .color_word(RED)
+                .build()
+            .sphere()
+                .at(1.0, 0.0, 0.0)
+                .color_word(CYAN)
+                .build()
+            .sphere()
+                .at(2.0, 0.0, 0.0)
+                .color_word(DARKSALMON)
+                .build()
+            .sphere()
+                .at(3.0, 0.0, 0.0)
+                .color_word(LIGHTSTEELBLUE)
+                .build()
+            .sphere()
+                .at(4.0, 0.0, 0.0)
+                .color_word(BLUEVIOLET)
+                .build()
+            .sphere()
+                .at(5.0, 0.0, 0.0)
+                .color_word(MEDIUMAQUAMARINE)
+                .build()
+            .build();
+        scenes.push(scene5);
 
         scenes
     }
 }
-
-// pub fn create_scenes() -> Vec<SceneData> {
-//     use crate::scene_builder::SceneBuilder;
-    
-//     let mut scenes = Vec::new();
-
-//     // Scene 1: Portal scene (your original)
-//     let scene1 = SceneBuilder::portal_scene().build();
-//     scenes.push(scene1);
-
-//     // Scene 2: Cornell box with spheres
-//     let scene2 = SceneBuilder::cornell_box()
-//         .sphere().at(-1.0, -1.0, -3.0).radius(0.8).red().build()
-//         .sphere().at(1.0, -1.0, -3.0).radius(0.8).blue().build()
-//         .sphere().at(0.0, 0.0, -2.0).radius(0.5).white().build()
-//         .build();
-//     scenes.push(scene2);
-
-//     // Scene 3: Grid of spheres
-//     let scene3 = SceneBuilder::new()
-//         .ground_plane(-2.0, [0.1, 0.1, 0.1])
-//         .spheres_grid(3, 3, 2.0, 0.5, [0.8, 0.2, 0.2])
-//         .build();
-//     scenes.push(scene3);
-
-//     // Scene 4: Mixed objects demo
-//     let scene4 = SceneBuilder::new()
-//         .ground_plane(-3.0, [0.3, 0.3, 0.3])
-//         .sphere().at(-2.0, 0.0, -5.0).radius(1.0).color(1.0, 0.3, 0.3).build()
-//         .sphere().at(2.0, 0.0, -5.0).radius(1.0).color(0.3, 1.0, 0.3).build()
-//         .ellipse()
-//             .at(0.0, 1.0, -4.0)
-//             .normal(0.0, 0.0, 1.0)
-//             .radii(1.5, 0.8)
-//             .color(1.0, 1.0, 0.3)
-//             .border(0.1, 0.1, 0.1, 0.1)
-//             .build()
-//         .plane()
-//             .at(0.0, 0.0, -7.0)
-//             .normal(0.0, 0.0, 1.0)
-//             .color(0.2, 0.2, 0.5)
-//             .infinite()
-//             .build()
-//         .build();
-//     scenes.push(scene4);
-
-//     scenes
-// }
-

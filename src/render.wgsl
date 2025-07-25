@@ -50,9 +50,9 @@ struct SceneData {
     plane_count: u32,
     ellipse_count: u32,
     _padding: u32,
-    spheres: array<Sphere, 8>,
-    planes: array<Plane, 4>,
-    ellipses: array<Ellipse, 8>,
+    spheres: array<Sphere, 10>,
+    planes: array<Plane, 10>,
+    ellipses: array<Ellipse, 10>,
 }
 
 

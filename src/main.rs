@@ -5,6 +5,7 @@ use bytemuck::{Pod, Zeroable};
 use std::{collections::HashSet};
 
 mod scene;
+mod scene_builder;
 use scene::SceneData;
 
 
@@ -234,12 +235,28 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
     match key {
         Key::Key1 => {
             model.switch_scene(0);
-            println!("Switched to Scene 1: Ellipse Showcase");
+            println!("Switched to Scene 1");
         },
-        // Key::Key2 => {
-        //     model.switch_scene(1);
-        //     println!("Switched to Scene 2: Sphere Showcase");
-        // },
+        Key::Key2 => {
+            model.switch_scene(1);
+            println!("Switched to Scene 2");
+        },
+        Key::Key3 => {
+            model.switch_scene(2);
+            println!("Switched to Scene 3");
+        },
+        Key::Key4 => {
+            model.switch_scene(3);
+            println!("Switched to Scene 4");
+        },
+        Key::Key5 => {
+            model.switch_scene(4);
+            println!("Switched to Scene 5");
+        },
+        Key::Key6 => {
+            model.switch_scene(5);
+            println!("Switched to Scene 6");
+        },
         Key::Tab => {
             model.mouse_locked = !model.mouse_locked;
             model.last_mouse_pos = None;
