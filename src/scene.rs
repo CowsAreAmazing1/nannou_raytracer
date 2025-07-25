@@ -1,4 +1,6 @@
 
+// #![allow(dead_code)]
+
 use bytemuck::{Pod, Zeroable};
 
 
@@ -24,8 +26,16 @@ impl Default for Sphere {
     }
 }
 
-
-
+impl Sphere {
+    pub fn new(center: [f32; 3], radius: f32, color: [f32; 3]) -> Self {
+        Self {
+            center,
+            radius,
+            color,
+            _padding: 0.0,
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -60,7 +70,7 @@ impl Default for Plane {
 }
 
 impl Plane {
-    pub fn new(point: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
+    fn new(point: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
         Self {
             point,
             _padding1: 0.0,
@@ -75,8 +85,7 @@ impl Plane {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn new_finite(point: [f32; 3], normal: [f32; 3], color: [f32; 3], width: f32, height: f32) -> Self {
+    fn new_finite(point: [f32; 3], normal: [f32; 3], color: [f32; 3], width: f32, height: f32) -> Self {
         Self {
             point,
             _padding1: 0.0,
@@ -132,7 +141,7 @@ impl Default for Ellipse {
 }
 
 impl Ellipse {
-    pub fn new(center: [f32; 3], normal: [f32; 3], radius_a: f32, radius_b: f32, border_thickness: f32, color: [f32; 3], border_color: [f32; 3]) -> Self {
+    fn new(center: [f32; 3], normal: [f32; 3], radius_a: f32, radius_b: f32, border_thickness: f32, color: [f32; 3], border_color: [f32; 3]) -> Self {
         Self {
             center,
             _padding1: 0.0,
@@ -194,8 +203,7 @@ impl SceneData {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn add_sphere(&mut self, sphere: Sphere) {
+    fn add_sphere(&mut self, sphere: Sphere) {
         if self.sphere_count < MAX_SPHERES as u32 {
             self.spheres[self.sphere_count as usize] = sphere;
             self.sphere_count += 1;
@@ -204,7 +212,8 @@ impl SceneData {
         }
     }
 
-    pub fn add_plane(&mut self, plane: Plane) {
+    fn add_plane(&mut self, plane: Plane) {
+        print!("Adding plane");
         if self.plane_count < MAX_PLANES as u32 {
             self.planes[self.plane_count as usize] = plane;
             self.plane_count += 1;
@@ -213,7 +222,7 @@ impl SceneData {
         }
     }
 
-    pub fn add_ellipse(&mut self, ellipse: Ellipse) {
+    fn add_ellipse(&mut self, ellipse: Ellipse) {
         if self.ellipse_count < MAX_ELLIPSES as u32 {
             self.ellipses[self.ellipse_count as usize] = ellipse;
             self.ellipse_count += 1;
@@ -270,3 +279,52 @@ impl SceneData {
         scenes
     }
 }
+
+// pub fn create_scenes() -> Vec<SceneData> {
+//     use crate::scene_builder::SceneBuilder;
+    
+//     let mut scenes = Vec::new();
+
+//     // Scene 1: Portal scene (your original)
+//     let scene1 = SceneBuilder::portal_scene().build();
+//     scenes.push(scene1);
+
+//     // Scene 2: Cornell box with spheres
+//     let scene2 = SceneBuilder::cornell_box()
+//         .sphere().at(-1.0, -1.0, -3.0).radius(0.8).red().build()
+//         .sphere().at(1.0, -1.0, -3.0).radius(0.8).blue().build()
+//         .sphere().at(0.0, 0.0, -2.0).radius(0.5).white().build()
+//         .build();
+//     scenes.push(scene2);
+
+//     // Scene 3: Grid of spheres
+//     let scene3 = SceneBuilder::new()
+//         .ground_plane(-2.0, [0.1, 0.1, 0.1])
+//         .spheres_grid(3, 3, 2.0, 0.5, [0.8, 0.2, 0.2])
+//         .build();
+//     scenes.push(scene3);
+
+//     // Scene 4: Mixed objects demo
+//     let scene4 = SceneBuilder::new()
+//         .ground_plane(-3.0, [0.3, 0.3, 0.3])
+//         .sphere().at(-2.0, 0.0, -5.0).radius(1.0).color(1.0, 0.3, 0.3).build()
+//         .sphere().at(2.0, 0.0, -5.0).radius(1.0).color(0.3, 1.0, 0.3).build()
+//         .ellipse()
+//             .at(0.0, 1.0, -4.0)
+//             .normal(0.0, 0.0, 1.0)
+//             .radii(1.5, 0.8)
+//             .color(1.0, 1.0, 0.3)
+//             .border(0.1, 0.1, 0.1, 0.1)
+//             .build()
+//         .plane()
+//             .at(0.0, 0.0, -7.0)
+//             .normal(0.0, 0.0, 1.0)
+//             .color(0.2, 0.2, 0.5)
+//             .infinite()
+//             .build()
+//         .build();
+//     scenes.push(scene4);
+
+//     scenes
+// }
+

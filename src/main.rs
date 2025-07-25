@@ -110,6 +110,7 @@ fn model(app: &App) -> Model {
 
     let scenes = SceneData::create_scenes();
 
+
     // Create uniform buffer
     let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Uniform Buffer"),
