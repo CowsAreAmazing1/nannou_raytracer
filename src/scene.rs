@@ -1,5 +1,5 @@
 
-// #![allow(dead_code)]
+#![allow(dead_code)]
 
 use bytemuck::{Pod, Zeroable};
 use nannou::color::*;

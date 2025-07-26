@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+
+
 use crate::scene::{SceneData, Sphere, Plane, Ellipse};
 use nannou::color::Rgb;
 

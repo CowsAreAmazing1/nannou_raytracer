@@ -212,22 +212,41 @@ fn trace_ray(ray: Ray) -> HitInfo {
             hit_info.normal = plane.normal;
             hit_info.color = plane.color;
 
-            // Checker
-            let world_pos = hit_info.point;
-            let checker_scale = 1.0;
-            let checker_x = floor(world_pos.x / checker_scale + 0.5);
-            let checker_z = floor(world_pos.z / checker_scale + 0.5);
-            let sum = checker_x + checker_z;
+            // Checker in local coordinates
+            let hit_point = hit_info.point;
+            let local_point = hit_point - plane.point;
+            
+            let up = vec3<f32>(0.0, 1.0, 0.0);
+            var u_axis: vec3<f32>;
+            var v_axis: vec3<f32>;
+            
+            if (abs(dot(plane.normal, up)) < 0.9) {
+                u_axis = normalize(cross(plane.normal, up));
+            } else {
+                u_axis = normalize(cross(plane.normal, vec3<f32>(1.0, 0.0, 0.0)));
+            }
+            v_axis = cross(plane.normal, u_axis);
+            
+            // Project hit point onto plane's local coordinates
+            let u = dot(local_point, u_axis);
+            let v = dot(local_point, v_axis);
+            
+            // Apply checkerboard pattern using local coordinates
+            let checker_scale = 0.5;
+            let checker_u = floor(u / checker_scale + 0.5);
+            let checker_v = floor(v / checker_scale + 0.5);
+            let sum = checker_u + checker_v;
             let checker_pattern = abs(sum - 2.0 * floor(sum * 0.5));
 
             if (checker_pattern < 0.5) {
-                hit_info.color = vec3<f32>(0.2, 0.2, 0.2);
+                hit_info.color = plane.color;
             } else {
-                hit_info.color = vec3<f32>(0.05, 0.05, 0.05);
+                hit_info.color = plane.color - vec3<f32>(0.25, 0.25, 0.25);
             }
         }
 
     }
+    
 
     for (var i: u32 = 0u; i < scene.sphere_count; i++) {
         let sphere = scene.spheres[i];
