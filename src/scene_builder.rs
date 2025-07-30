@@ -35,13 +35,13 @@ impl SceneBuilder {
     }
 
     // Convenience methods for common objects
-    pub fn ground_plane(mut self, y: f32, color: [f32; 3]) -> Self {
-        let plane = Plane::new([0.0, y, 0.0], [0.0, 1.0, 0.0], color);
+    pub fn ground_plane(mut self, y: f32, color: [f32; 3], reflectivity: f32) -> Self {
+        let plane = Plane::new([0.0, y, 0.0], [0.0, 1.0, 0.0], color, reflectivity);
         self.planes.push(plane);
         self
     }
 
-    pub fn spheres_grid(mut self, rows: usize, cols: usize, spacing: f32, radius: f32, color: [f32; 3]) -> Self {
+    pub fn spheres_grid(mut self, rows: usize, cols: usize, spacing: f32, radius: f32, color: [f32; 3], reflectivity: f32) -> Self {
         let start_x = -(cols as f32 - 1.0) * spacing / 2.0;
         let start_z = -(rows as f32 - 1.0) * spacing / 2.0;
         
@@ -49,7 +49,7 @@ impl SceneBuilder {
             for col in 0..cols {
                 let x = start_x + col as f32 * spacing;
                 let z = start_z + row as f32 * spacing;
-                let sphere = Sphere::new([x, radius, z], radius, color);
+                let sphere = Sphere::new([x, radius, z], radius, color, reflectivity);
                 self.spheres.push(sphere);
             }
         }
@@ -63,7 +63,7 @@ impl SceneBuilder {
         let rim_thickness = 0.1;
 
         Self::new()
-            .ground_plane(-5.0, [0.2, 0.0, 0.0])
+            .ground_plane(-5.0, [0.2, 0.0, 0.0], 0.0)
             .ellipse()
                 .at(1.5, 1.0, -4.0)
                 .normal(0.0, -0.5, 1.0)
@@ -80,18 +80,8 @@ impl SceneBuilder {
                 .build()
     }
 
-    pub fn cornell_box() -> Self {
-        Self::new()
-            // Floor
-            .plane().at(0.0, -2.0, 0.0).normal(0.0, 1.0, 0.0).color(0.8, 0.8, 0.8).infinite().build()
-            // Ceiling
-            .plane().at(0.0, 2.0, 0.0).normal(0.0, -1.0, 0.0).color(0.8, 0.8, 0.8).infinite().build()
-            // Back wall
-            .plane().at(0.0, 0.0, -5.0).normal(0.0, 0.0, 1.0).color(0.8, 0.8, 0.8).infinite().build()
-            // Left wall (red)
-            .plane().at(-2.0, 0.0, 0.0).normal(1.0, 0.0, 0.0).color(0.8, 0.2, 0.2).infinite().build()
-            // Right wall (green)
-            .plane().at(2.0, 0.0, 0.0).normal(-1.0, 0.0, 0.0).color(0.2, 0.8, 0.2).infinite().build()
+    pub fn cornell_box(self) -> CornellBuilder {
+        CornellBuilder::new(self)
     }
 
     pub fn build(self) -> SceneData {
@@ -116,12 +106,46 @@ impl SceneBuilder {
     }
 }
 
+pub struct CornellBuilder {
+    scene_builder: SceneBuilder,
+    reflectivity: f32,
+}
+
+impl CornellBuilder {
+    fn new(scene_builder: SceneBuilder) -> Self {
+        Self {
+            scene_builder,
+            reflectivity: 0.0,
+        }
+    }
+
+    pub fn reflectivity(mut self, value: f32) -> Self {
+        self.reflectivity = value;
+        self
+    }
+
+    pub fn build(self) -> SceneBuilder {
+        self.scene_builder
+            // Floor
+            .plane().at(0.0, -2.0, 0.0).normal(0.0, 1.0, 0.0).color(0.8, 0.8, 0.8).reflectivity(self.reflectivity).infinite().build()
+            // Ceiling
+            .plane().at(0.0, 2.0, 0.0).normal(0.0, -1.0, 0.0).color(0.8, 0.8, 0.8).reflectivity(self.reflectivity).infinite().build()
+            // Back wall
+            .plane().at(0.0, 0.0, -5.0).normal(0.0, 0.0, 1.0).color(0.8, 0.8, 0.8).reflectivity(self.reflectivity).infinite().build()
+            // Left wall (red)
+            .plane().at(-2.0, 0.0, 0.0).normal(1.0, 0.0, 0.0).color(0.8, 0.2, 0.2).reflectivity(self.reflectivity).infinite().build()
+            // Right wall (green)
+            .plane().at(2.0, 0.0, 0.0).normal(-1.0, 0.0, 0.0).color(0.2, 0.8, 0.2).reflectivity(self.reflectivity).infinite().build()
+    }
+}
+
 // Sphere builder
 pub struct SphereBuilder {
     scene_builder: SceneBuilder,
     center: [f32; 3],
     radius: f32,
     color: [f32; 3],
+    reflectivity: f32,
 }
 
 impl SphereBuilder {
@@ -131,6 +155,7 @@ impl SphereBuilder {
             center: [0.0, 0.0, 0.0],
             radius: 1.0,
             color: [1.0, 1.0, 1.0],
+            reflectivity: 0.0,
         }
     }
 
@@ -183,8 +208,13 @@ impl SphereBuilder {
         self
     }
 
+    pub fn reflectivity(mut self, value: f32) -> Self {
+        self.reflectivity = value;
+        self
+    }
+
     pub fn build(mut self) -> SceneBuilder {
-        let sphere = Sphere::new(self.center, self.radius, self.color);
+        let sphere = Sphere::new(self.center, self.radius, self.color, self.reflectivity);
         self.scene_builder.spheres.push(sphere);
         self.scene_builder
     }
@@ -199,6 +229,7 @@ pub struct PlaneBuilder {
     width: f32,
     height: f32,
     is_infinite: bool,
+    reflectivity: f32,
 }
 
 impl PlaneBuilder {
@@ -211,6 +242,7 @@ impl PlaneBuilder {
             width: 1.0,
             height: 1.0,
             is_infinite: true,
+            reflectivity: 0.0,
         }
     }
 
@@ -241,9 +273,14 @@ impl PlaneBuilder {
         self
     }
 
+    pub fn reflectivity(mut self, value: f32) -> Self {
+        self.reflectivity = value;
+        self
+    }
+
     pub fn build(mut self) -> SceneBuilder {
         let plane = if self.is_infinite {
-            Plane::new(self.point, self.normal, self.color)
+            Plane::new(self.point, self.normal, self.color, self.reflectivity)
         } else {
             Plane::new_finite(self.point, self.normal, self.color, self.width, self.height)
         };
@@ -262,6 +299,7 @@ pub struct EllipseBuilder {
     border_thickness: f32,
     color: [f32; 3],
     border_color: [f32; 3],
+    reflectivity: f32,
 }
 
 impl EllipseBuilder {
@@ -275,6 +313,7 @@ impl EllipseBuilder {
             border_thickness: 0.0,
             color: [1.0, 1.0, 1.0],
             border_color: [0.0, 0.0, 0.0],
+            reflectivity: 0.0,
         }
     }
 
@@ -305,6 +344,11 @@ impl EllipseBuilder {
         self
     }
 
+    pub fn reflectivity(mut self, value: f32) -> Self {
+        self.reflectivity = value;
+        self
+    }
+
     pub fn build(mut self) -> SceneBuilder {
         let ellipse = Ellipse::new(
             self.center,
@@ -314,6 +358,7 @@ impl EllipseBuilder {
             self.border_thickness,
             self.color,
             self.border_color,
+            self.reflectivity,
         );
         self.scene_builder.ellipses.push(ellipse);
         self.scene_builder

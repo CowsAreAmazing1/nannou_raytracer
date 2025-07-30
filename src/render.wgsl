@@ -5,7 +5,7 @@ struct Uniforms {
     time: f32,
     scene_id: u32,
     camera_pos: vec3<f32>,
-    _padding2: f32,
+    ray_time: f32,
     camera_dir: vec3<f32>,
     fov: f32,
 }
@@ -27,7 +27,7 @@ struct Plane {
     width: f32,
     height: f32,
     is_infinite: f32, // 0.0 for finite, 1.0 for infinite
-    _padding4: f32,
+    reflectivity: f32,
 }
 
 struct Ellipse {
@@ -42,7 +42,7 @@ struct Ellipse {
     color: vec3<f32>,
     _padding4: f32,
     border_color: vec3<f32>,
-    _padding5: f32,
+    reflectivity: f32,
 }
 
 struct SceneData {
@@ -193,10 +193,10 @@ struct HitInfo {
     point: vec3<f32>,
     normal: vec3<f32>,
     color: vec3<f32>,
-    _padding: f32,
+    reflectivity: f32,
 }
 
-fn trace_ray(ray: Ray) -> HitInfo {
+fn trace_ray(ray: Ray, t_offset: f32) -> HitInfo {
     var hit_info: HitInfo;
     hit_info.hit = false;
     hit_info.t = 1000.0;
@@ -205,7 +205,7 @@ fn trace_ray(ray: Ray) -> HitInfo {
         let plane = scene.planes[i];
         let t = ray_plane_intersect(ray, plane);
 
-        if (t > 0.001 && t < hit_info.t) {
+        if (t > 0.001 && t < hit_info.t && t + t_offset < uniforms.ray_time) { // add ray speed limit
             hit_info.hit = true;
             hit_info.t = t;
             hit_info.point = ray.origin + t * ray.direction;
@@ -243,8 +243,9 @@ fn trace_ray(ray: Ray) -> HitInfo {
             } else {
                 hit_info.color = plane.color - vec3<f32>(0.25, 0.25, 0.25);
             }
+            
+            hit_info.reflectivity = plane.reflectivity;
         }
-
     }
     
 
@@ -252,12 +253,13 @@ fn trace_ray(ray: Ray) -> HitInfo {
         let sphere = scene.spheres[i];
         let t = ray_sphere_intersect(ray, sphere);
         
-        if (t > 0.001 && t < hit_info.t) {
+        if (t > 0.001 && t < hit_info.t && t < uniforms.ray_time) { // add ray speed limit
             hit_info.hit = true;
             hit_info.t = t;
             hit_info.point = ray.origin + t * ray.direction;
             hit_info.normal = normalize(hit_info.point - sphere.center);
             hit_info.color = sphere.color;
+            hit_info.reflectivity = sphere.reflectivity;
         }
     }
     
@@ -265,12 +267,13 @@ fn trace_ray(ray: Ray) -> HitInfo {
         let ellipse = scene.ellipses[i];
         let t = ray_ellipse_intersect(ray, ellipse);
         
-        if (t > 0.001 && t < hit_info.t) {
+        if (t > 0.001 && t < hit_info.t && t < uniforms.ray_time) { // add ray speed limit
             hit_info.hit = true;
             hit_info.t = t;
             hit_info.point = ray.origin + t * ray.direction;
             hit_info.normal = ellipse.normal;
             hit_info.color = ellipse.color;
+            hit_info.reflectivity = ellipse.reflectivity;
         }
     }
     
@@ -280,6 +283,59 @@ fn trace_ray(ray: Ray) -> HitInfo {
 // Calculate reflection direction
 fn reflect(incident: vec3<f32>, normal: vec3<f32>) -> vec3<f32> {
     return incident - 2.0 * dot(incident, normal) * normal;
+}
+
+// Trace ray with reflections (limited depth to prevent infinite recursion)
+fn trace_ray_with_reflections(ray: Ray, max_depth: i32) -> vec3<f32> {
+    var current_ray = ray;
+    var final_color = vec3<f32>(0.0, 0.0, 0.0);
+    var reflection_strength = 1.0;
+    var t_offset = 0.0;
+    
+    for (var depth = 0; depth < max_depth; depth++) {
+        let hit = trace_ray(current_ray, t_offset);
+        
+        if (!hit.hit) {
+            // Add background color contribution
+            let uv = normalize(current_ray.direction);
+            let gradient = uv.y * 0.5 + 0.5;
+            let bg_color = vec3<f32>(0.0, 0.0, 0.0); // vec3<f32>(0.1, 0.2, 0.3 + gradient * 0.3);
+
+            final_color += bg_color * reflection_strength;
+            break;
+        }
+
+        t_offset += hit.t;
+        
+        // Calculate lighting for this surface
+        let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
+        let diffuse = max(dot(hit.normal, light_dir), 0.1);
+        let surface_color = hit.color * diffuse;
+        
+        // Add surface color contribution
+        let surface_contribution = (1.0 - hit.reflectivity);
+        final_color += surface_color * reflection_strength * surface_contribution;
+        
+        // If object has reflectivity, prepare for next reflection
+        if (hit.reflectivity > 0.001) {
+            // Calculate reflection ray
+            let reflected_dir = reflect(current_ray.direction, hit.normal);
+            current_ray = Ray(hit.point + hit.normal * 0.001, reflected_dir); // Offset slightly to avoid self-intersection
+            
+            // Update reflection strength for next bounce
+            reflection_strength *= hit.reflectivity;
+            
+            // If reflection strength becomes too small, stop tracing
+            if (reflection_strength < 0.01) {
+                break;
+            }
+        } else {
+            // No reflectivity, stop bouncing
+            break;
+        }
+    }
+    
+    return final_color;
 }
 
 
@@ -309,19 +365,22 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     
     let primary_ray = Ray(ray_origin, ray_direction);
     
-    // Trace primary ray
-    let hit = trace_ray(primary_ray);
+    // // Trace primary ray
+    // let hit = trace_ray(primary_ray);
     
-    if (!hit.hit) {
-        // Background gradient
-        let gradient = uv.y * 0.5 + 0.5;
-        return vec4<f32>(0.1, 0.2, 0.3 + gradient * 0.3, 1.0);
-    }
+    // if (!hit.hit) {
+    //     // Background gradient
+    //     let gradient = uv.y * 0.5 + 0.5;
+    //     return vec4<f32>(0.1, 0.2, 0.3 + gradient * 0.3, 1.0);
+    // }
     
-    // Calculate basic lighting
-    let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-    let diffuse = max(dot(hit.normal, light_dir), 0.1);
-    var final_color = hit.color * diffuse;
+    // // Calculate basic lighting
+    // let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
+    // let diffuse = max(dot(hit.normal, light_dir), 0.1);
+    // var final_color = hit.color * diffuse;
+
+
+    let final_color = trace_ray_with_reflections(primary_ray, 50);
     
     return vec4<f32>(final_color, 1.0);
 }

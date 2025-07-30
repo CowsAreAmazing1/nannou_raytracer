@@ -13,7 +13,7 @@ pub struct Sphere {
     center: [f32; 3],
     radius: f32,
     color: [f32; 3],
-    _padding: f32,
+    reflectivity: f32,
 }
 
 impl Default for Sphere {
@@ -22,18 +22,18 @@ impl Default for Sphere {
             center: [0.0; 3],
             radius: 1.0,
             color: [0.0; 3],
-            _padding: 0.0,
+            reflectivity: 0.0,
         }
     }
 }
 
 impl Sphere {
-    pub fn new(center: [f32; 3], radius: f32, color: [f32; 3]) -> Self {
+    pub fn new(center: [f32; 3], radius: f32, color: [f32; 3], reflectivity: f32) -> Self {
         Self {
             center,
             radius,
             color,
-            _padding: 0.0,
+            reflectivity,
         }
     }
 }
@@ -50,7 +50,7 @@ pub struct Plane {
     width: f32,
     height: f32,
     is_infinite: f32, // 1.0 for infinite, 0.0 for finite
-    _padding4: f32,
+    reflectivity: f32,
 }
 
 impl Default for Plane {
@@ -65,13 +65,13 @@ impl Default for Plane {
             width: 1.0,
             height: 1.0,
             is_infinite: 1.0,
-            _padding4: 0.0,
+            reflectivity: 0.0,
         }
     }
 }
 
 impl Plane {
-    pub fn new(point: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
+    pub fn new(point: [f32; 3], normal: [f32; 3], color: [f32; 3], reflectivity: f32) -> Self {
         Self {
             point,
             _padding1: 0.0,
@@ -82,7 +82,7 @@ impl Plane {
             width: 0.0,
             height: 0.0,
             is_infinite: 1.0,
-            _padding4: 0.0,
+            reflectivity,
         }
     }
 
@@ -97,7 +97,7 @@ impl Plane {
             width,
             height,
             is_infinite: 0.0, // Mark as finite
-            _padding4: 0.0,
+            reflectivity: 0.0,
         }
     }
 }
@@ -119,7 +119,7 @@ pub struct Ellipse {
     color: [f32; 3],
     _padding4: f32,
     border_color: [f32; 3],
-    _padding5: f32,
+    reflectivity: f32,
 }
 
 impl Default for Ellipse {
@@ -136,13 +136,13 @@ impl Default for Ellipse {
             color: [0.0; 3],
             _padding4: 0.0,
             border_color: [0.0; 3],
-            _padding5: 0.0,
+            reflectivity: 0.0,
         }
     }
 }
 
 impl Ellipse {
-    pub fn new(center: [f32; 3], normal: [f32; 3], radius_a: f32, radius_b: f32, border_thickness: f32, color: [f32; 3], border_color: [f32; 3]) -> Self {
+    pub fn new(center: [f32; 3], normal: [f32; 3], radius_a: f32, radius_b: f32, border_thickness: f32, color: [f32; 3], border_color: [f32; 3], reflectivity: f32) -> Self {
         Self {
             center,
             _padding1: 0.0,
@@ -155,7 +155,7 @@ impl Ellipse {
             color,
             _padding4: 0.0,
             border_color,
-            _padding5: 0.0,
+            reflectivity,
         }
     }
 }
@@ -241,23 +241,24 @@ impl SceneData {
         scenes.push(scene1);
 
         // Scene 2: Cornell box with spheres
-        let scene2 = SceneBuilder::cornell_box()
-            .sphere().at(-1.0, -1.0, -3.0).radius(0.8).red().build()
-            .sphere().at(1.0, -1.0, -3.0).radius(0.8).blue().build()
-            .sphere().at(0.0, 0.0, -2.0).radius(0.5).white().build()
+        let scene2 = SceneBuilder::new()
+            .cornell_box().reflectivity(0.9).build()
+            .sphere().at(-1.0, -1.0, -3.0).radius(0.8).red().reflectivity(0.0).build()
+            .sphere().at(1.0, -1.0, -3.0).radius(0.8).blue().reflectivity(0.0).build()
+            .sphere().at(0.0, 0.0, -2.0).radius(0.5).white().reflectivity(0.0).build()
             .build();
         scenes.push(scene2);
 
         // Scene 3: Grid of spheres
         let scene3 = SceneBuilder::new()
-            .ground_plane(-2.0, [0.1, 0.1, 0.1])
-            .spheres_grid(3, 3, 2.0, 0.5, [0.8, 0.2, 0.2])
+            .ground_plane(-2.0, [0.1, 0.1, 0.1], 0.0)
+            .spheres_grid(3, 3, 2.0, 0.5, [0.8, 0.2, 0.2], 0.0)
             .build();
         scenes.push(scene3);
 
         // Scene 4: Mixed objects demo
         let scene4 = SceneBuilder::new()
-            .ground_plane(-3.0, [0.3, 0.3, 0.3])
+            .ground_plane(-3.0, [0.3, 0.3, 0.3], 0.0)
             .sphere().at(-2.0, 0.0, -5.0).radius(1.0).color(1.0, 0.3, 0.3).build()
             .sphere().at(2.0, 0.0, -5.0).radius(1.0).color(0.3, 1.0, 0.3).build()
             .ellipse()

@@ -21,7 +21,7 @@ struct Uniforms {
     time: f32,
     scene_id: u32,
     camera_pos: [f32; 3],
-    _padding2: f32,
+    ray_time: f32,
     camera_dir: [f32; 3],
     fov: f32,
 }
@@ -77,8 +77,8 @@ struct Model {
     scenes: Vec<SceneData>,
     camera: Camera,
     keys_pressed: HashSet<Key>,
-    mouse_locked: bool,
     last_mouse_pos: Option<Vec2>,
+    ray_time: f32,
 }
 
 struct GpuState {
@@ -104,6 +104,7 @@ fn model(app: &App) -> Model {
         .key_pressed(key_pressed)
         .key_released(key_released)
         .mouse_pressed(mouse_pressed)
+        .mouse_released(mouse_released)
         .mouse_moved(mouse_moved)
         .build().unwrap();
     let window = app.window(window_id).unwrap();
@@ -224,8 +225,8 @@ fn model(app: &App) -> Model {
         scenes,
         camera: Camera::new(),
         keys_pressed: HashSet::new(),
-        mouse_locked: false,
         last_mouse_pos: None,
+        ray_time: 1000.0,
     }
 }
 
@@ -257,11 +258,6 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
             model.switch_scene(5);
             println!("Switched to Scene 6");
         },
-        Key::Tab => {
-            model.mouse_locked = !model.mouse_locked;
-            model.last_mouse_pos = None;
-            println!("Mouse lock {}", if model.mouse_locked { "ON" } else { "OFF" });
-        }
         _ => {}
     }
 }
@@ -270,26 +266,23 @@ fn key_released(_app: &App, model: &mut Model, key: Key) {
     model.keys_pressed.remove(&key);
 }
 
-fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) {
-    if !model.mouse_locked {
-        model.mouse_locked = true;
-        model.last_mouse_pos = None;
-
-        let window = app.window(model.window_id).unwrap();
-        let _ = window.set_cursor_grab(true);
-        window.set_cursor_visible(false);
-
-        println!("Mouse locked");
-    }
+fn mouse_pressed(_app: &App, _model: &mut Model, _button: MouseButton) {
+    // let window = app.window(model.window_id).unwrap();
+    // let _ = window.set_cursor_grab(true);
 }
 
-fn mouse_moved(_app: &App, model: &mut Model, pos: Point2) {
-    if model.mouse_locked {
+fn mouse_released(_app: &App, model: &mut Model, _button: MouseButton) {
+    model.last_mouse_pos = None;
+}
+
+fn mouse_moved(app: &App, model: &mut Model, pos: Point2) {
+    if app.mouse.buttons.left().is_down() {
         if let Some(last_pos) = model.last_mouse_pos {
+
             let mouse_delta = vec2(pos.x, pos.y) - last_pos;
             model.camera.yaw += mouse_delta.x * model.camera.sensitivity;
             model.camera.pitch += mouse_delta.y * model.camera.sensitivity;
-
+            
             model.camera.pitch = model.camera.pitch.clamp(-PI / 2.0 + 0.1, PI / 2.0 - 0.1);
         }
         model.last_mouse_pos = Some(vec2(pos.x, pos.y));
@@ -323,9 +316,12 @@ fn update(_app: &App, model: &mut Model, update: Update) {
     if movement.length() > 0.0 {
         movement = movement.normalize() * model.camera.speed * dt;
         model.camera.position += movement;
+    } else if model.last_mouse_pos.is_none() {
+        model.ray_time += 10.0 * dt;
+    } else {
+        model.ray_time = 0.0; // Reset ray time if mouse is moved
     }
 }
-
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let window = app.window(model.window_id).unwrap();
@@ -348,7 +344,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         time: app.time,
         scene_id: model.current_scene,
         camera_pos,
-        _padding2: 0.0,
+        ray_time: model.ray_time,
         camera_dir,
         fov: model.camera.fov_multiplier,
     };
