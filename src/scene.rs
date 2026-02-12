@@ -1,7 +1,5 @@
-
 use bytemuck::{Pod, Zeroable};
 use nannou::prelude::*;
-
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -51,7 +49,13 @@ impl Plane {
         }
     }
 
-    pub fn new_finite(point: [f32; 3], normal: [f32; 3], color: [f32; 3], width: f32, height: f32) -> Self {
+    pub fn new_finite(
+        point: [f32; 3],
+        normal: [f32; 3],
+        color: [f32; 3],
+        width: f32,
+        height: f32,
+    ) -> Self {
         Self {
             point,
             _padding1: 0.0,
@@ -66,10 +70,6 @@ impl Plane {
         }
     }
 }
-
-
-
-
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -108,7 +108,15 @@ impl Default for Ellipse {
 }
 
 impl Ellipse {
-    pub fn new(center: [f32; 3], normal: [f32; 3], radius_a: f32, radius_b: f32, border_thickness: f32, color: [f32; 3], border_color: [f32; 3]) -> Self {
+    pub fn new(
+        center: [f32; 3],
+        normal: [f32; 3],
+        radius_a: f32,
+        radius_b: f32,
+        border_thickness: f32,
+        color: [f32; 3],
+        border_color: [f32; 3],
+    ) -> Self {
         Self {
             center,
             _padding1: 0.0,
@@ -125,10 +133,6 @@ impl Ellipse {
         }
     }
 }
-
-
-
-
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -159,13 +163,13 @@ impl Portal {
             [1.0; 3],
             [0.0, 0.0, 0.0],
         );
-        
+
         let mut portal = Self {
             ellipse,
             transformation_matrix: Mat4::IDENTITY.to_cols_array(),
             inverse_transformation_matrix: Mat4::IDENTITY.to_cols_array(),
         };
-        
+
         portal.update_transform(position, rotation);
         portal
     }
@@ -189,64 +193,61 @@ impl Portal {
 
         let base_transform = Mat4::from_rotation_translation(rotation, position);
 
-        let flip_matrix = if 0.0 /*self.flip_transform*/ < 0.0 {
-            Mat4::from_rotation_z(std::f32::consts::PI)
-        } else {
-            Mat4::IDENTITY
-        };
-        
+        let flip_matrix = Mat4::IDENTITY;
+        // if self.flip_transform < 0.0 {
+        //     Mat4::from_rotation_z(std::f32::consts::PI)
+        // } else {
+        //     Mat4::IDENTITY
+        // };
+
         let final_transform = base_transform * flip_matrix;
-        
+
         self.transformation_matrix = final_transform.to_cols_array();
         self.inverse_transformation_matrix = final_transform.inverse().to_cols_array();
     }
-    
-        fn update_transform(&mut self, position: Vec3, rotation: Quat) {
+
+    fn update_transform(&mut self, position: Vec3, rotation: Quat) {
         self.ellipse.center = position.to_array();
         self.ellipse.normal = (rotation * Vec3::Y).to_array();
-        
+
         let transform = Mat4::from_rotation_translation(rotation, position);
-        
+
         self.transformation_matrix = transform.to_cols_array();
         self.inverse_transformation_matrix = transform.inverse().to_cols_array();
     }
-    
+
     fn apply_flip(&mut self) {
         let current_transform = Mat4::from_cols_array(&self.transformation_matrix);
         let flip_matrix = Mat4::from_rotation_z(std::f32::consts::PI);
         let flipped_transform = current_transform * flip_matrix;
-        
+
         self.transformation_matrix = flipped_transform.to_cols_array();
         self.inverse_transformation_matrix = flipped_transform.inverse().to_cols_array();
     }
-    
+
     // Animation methods
     #[allow(dead_code)]
     pub fn set_position(&mut self, position: Vec3) {
         let current_rotation = self.get_rotation();
         self.update_transform(position, current_rotation);
     }
-    
+
     #[allow(dead_code)]
     pub fn set_rotation(&mut self, rotation: Quat) {
         let current_position = Vec3::from(self.ellipse.center);
         self.update_transform(current_position, rotation);
     }
-    
+
     pub fn animate(&mut self, position: Vec3, rotation: Quat) {
         self.update_transform(position, rotation);
     }
-    
+
     #[allow(dead_code)]
     fn get_rotation(&self) -> Quat {
         let current_normal = Vec3::from(self.ellipse.normal);
         Quat::from_rotation_arc(Vec3::Y, current_normal)
     }
 }
-
-
-
-
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -268,34 +269,31 @@ impl PortalPair {
     pub fn new(portal_a: Portal, portal_b: Portal) -> Self {
         let mut flipped_a = portal_a;
         flipped_a.apply_flip(); // Always flip portal A
-        
-        Self { 
-            portal_a: flipped_a, 
-            portal_b 
+
+        Self {
+            portal_a: flipped_a,
+            portal_b,
         }
     }
-    
+
     #[allow(dead_code)]
     pub fn animate_portal_a(&mut self, position: Vec3, rotation: Quat) {
         self.portal_a.animate(position, rotation);
         self.portal_a.apply_flip();
     }
-    
+
     #[allow(dead_code)]
     pub fn animate_portal_b(&mut self, position: Vec3, rotation: Quat) {
         self.portal_b.animate(position, rotation);
     }
-    
+
     pub fn animate_both(&mut self, pos_a: Vec3, rot_a: Quat, pos_b: Vec3, rot_b: Quat) {
         self.portal_a.animate(pos_a, rot_a);
         self.portal_a.apply_flip();
-        
+
         self.portal_b.animate(pos_b, rot_b);
     }
 }
-
-
-
 
 const MAX_PLANES: usize = 10;
 const MAX_ELLIPSES: usize = 4;
@@ -332,7 +330,7 @@ impl SceneData {
         Self::default()
     }
 
-    pub fn add_plane(&mut self, plane: Plane){
+    pub fn add_plane(&mut self, plane: Plane) {
         if self.plane_count < MAX_PLANES as u32 {
             self.planes[self.plane_count as usize] = plane;
             self.plane_count += 1;
@@ -359,8 +357,6 @@ impl SceneData {
         }
     }
 
-
-
     pub fn create_scenes() -> Vec<SceneData> {
         let mut scenes = Vec::new();
 
@@ -368,19 +364,17 @@ impl SceneData {
         let e_b = 1.0;
         let rim_thickness = 0.2;
 
-        { // Scene 1: Ellipse Showcase   
-        let mut scene1 = SceneData::new();
-            
-        scene1.add_plane(
-            Plane::new(
+        {
+            // Scene 1: Ellipse Showcase
+            let mut scene1 = SceneData::new();
+
+            scene1.add_plane(Plane::new(
                 [0.0, -2.0, 0.0],
                 [0.0, 1.0, 0.0],
                 [0.2, 0.0, 0.0],
-            )
-        );
+            ));
 
-        scene1.add_ellipse(
-            Ellipse::new(
+            scene1.add_ellipse(Ellipse::new(
                 [1.5, 1.0, -4.0],
                 [0.0, -0.5, 1.0],
                 e_a,
@@ -388,11 +382,9 @@ impl SceneData {
                 rim_thickness,
                 [0.7, 0.4, 0.0],
                 [0.0, 0.0, 0.0],
-            )
-        );
+            ));
 
-        scene1.add_ellipse(
-            Ellipse::new(
+            scene1.add_ellipse(Ellipse::new(
                 [-1.5, 1.0, -4.0],
                 [0.0, -0.5, 1.0],
                 e_a,
@@ -400,49 +392,40 @@ impl SceneData {
                 rim_thickness,
                 [0.0, 0.4, 0.7],
                 [0.0, 0.0, 0.0],
-            )
-        );
+            ));
 
-        scenes.push(scene1);
+            scenes.push(scene1);
         }
 
-        { // Scene 2: Single Portal Pair Setup
-        let mut scene2 = SceneData::new();
+        {
+            // Scene 2: Single Portal Pair Setup
+            let mut scene2 = SceneData::new();
 
-        scene2.add_plane(
-            Plane::new(
+            scene2.add_plane(Plane::new(
                 [0.1, 0.0, 0.1],
                 [-0.1, 1.0, -0.1],
                 [0.5, 0.0, 0.0],
-            )
-        );
+            ));
 
-        scene2.add_plane(
-            Plane::new(
+            scene2.add_plane(Plane::new(
                 [-0.1, 0.0, 0.1],
                 [0.1, 1.0, -0.1],
                 [0.35, 0.35, 0.0],
-            )
-        );
+            ));
 
-        scene2.add_plane(
-            Plane::new(
+            scene2.add_plane(Plane::new(
                 [0.1, 0.0, -0.1],
                 [-0.1, 1.0, 0.1],
                 [0.0, 0.5, 0.0],
-            )
-        );
+            ));
 
-        scene2.add_plane(
-            Plane::new(
+            scene2.add_plane(Plane::new(
                 [-0.1, 0.0, -0.1],
                 [0.1, 1.0, 0.1],
                 [0.0, 0.2, 0.5],
-            )
-        );
+            ));
 
-        scene2.add_ellipse(
-            Ellipse::new(
+            scene2.add_ellipse(Ellipse::new(
                 [-1.0, 1.7, -4.0],
                 [0.0, 0.0, 1.0],
                 e_a,
@@ -450,11 +433,9 @@ impl SceneData {
                 rim_thickness,
                 [0.7, 0.4, 0.0],
                 [0.0, 0.0, 0.0],
-            )
-        );
+            ));
 
-        scene2.add_ellipse(
-            Ellipse::new(
+            scene2.add_ellipse(Ellipse::new(
                 [1.0, 1.7, -4.1],
                 [0.0, 0.0, -1.0],
                 e_a,
@@ -462,49 +443,40 @@ impl SceneData {
                 rim_thickness,
                 [0.0, 0.4, 0.7],
                 [0.0, 0.0, 0.0],
-            )
-        );
+            ));
 
-        scenes.push(scene2);
+            scenes.push(scene2);
         }
 
-        { // Scene 3: Single Portal Pair
-        let mut scene3 = SceneData::new();
+        {
+            // Scene 3: Single Portal Pair
+            let mut scene3 = SceneData::new();
 
-        scene3.add_plane(
-            Plane::new(
+            scene3.add_plane(Plane::new(
                 [0.1, 0.0, 0.1],
                 [-0.1, 1.0, -0.1],
                 [0.5, 0.0, 0.0],
-            )
-        );
+            ));
 
-        scene3.add_plane(
-            Plane::new(
+            scene3.add_plane(Plane::new(
                 [-0.1, 0.0, 0.1],
                 [0.1, 1.0, -0.1],
                 [0.35, 0.35, 0.0],
-            )
-        );
+            ));
 
-        scene3.add_plane(
-            Plane::new(
+            scene3.add_plane(Plane::new(
                 [0.1, 0.0, -0.1],
                 [-0.1, 1.0, 0.1],
                 [0.0, 0.5, 0.0],
-            )
-        );
+            ));
 
-        scene3.add_plane(
-            Plane::new(
+            scene3.add_plane(Plane::new(
                 [-0.1, 0.0, -0.1],
                 [0.1, 1.0, 0.1],
                 [0.0, 0.2, 0.5],
-            )
-        );
+            ));
 
-        scene3.add_portal_pair(
-            PortalPair::new(
+            scene3.add_portal_pair(PortalPair::new(
                 Portal::new(
                     scenes[1].ellipses[0].center.into(),
                     Quat::from_rotation_arc(Vec3::Y, Vec3::Z),
@@ -512,332 +484,355 @@ impl SceneData {
                     1.0,
                 ),
                 Portal::new(
-                    scenes[1].ellipses[1]
-                    .center.into(),
+                    scenes[1].ellipses[1].center.into(),
                     Quat::from_rotation_arc(Vec3::Y, Vec3::Z) * Quat::from_rotation_z(PI),
                     0.6,
                     1.0,
                 ),
-            )
-        );
+            ));
 
-        scenes.push(scene3);
+            scenes.push(scene3);
         }
 
-        { // Scene 4: Rooms
-        let mut scene4 = SceneData::new();
+        {
+            // Scene 4: Rooms
+            let mut scene4 = SceneData::new();
 
-        scene4.add_plane(Plane::new_finite( // Red right
-            [-0.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0], 
-            [-1.0, 0.0, 0.0],
-            [0.2, 0.0, 0.0],
-            3.0,
-            3.0
-        ));
-        scene4.add_plane(Plane::new_finite( // Red back
-            [-2.0 - 1.5, 0.0 + 1.0, -1.5 - 5.0], 
-            [0.0, 0.0, 1.0],
-            [0.3, 0.0, 0.0],
-            3.0,
-            3.0
-        ));
-        scene4.add_plane(Plane::new_finite( // Red left
-            [-3.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0], 
-            [1.0, 0.0, 0.0],
-            [0.4, 0.0, 0.0],
-            3.0,
-            3.0
-        ));
-        scene4.add_plane(Plane::new_finite( // Red bottom
-            [-2.0 - 1.5, -1.5 + 1.0, 0.0 - 5.0], 
-            [0.0, 1.0, 0.0],
-            [0.5, 0.0, 0.0],
-            3.0,
-            3.0
-        ));
-        scene4.add_plane(Plane::new_finite( // Red top
-            [-2.0 - 1.5, 1.5 + 1.0, 0.0 - 5.0], 
-            [0.0, -1.0, 0.0],
-            [0.6, 0.0, 0.0],
-            3.0,
-            3.0
-        ));
+            scene4.add_plane(Plane::new_finite(
+                // Red right
+                [-0.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0],
+                [-1.0, 0.0, 0.0],
+                [0.2, 0.0, 0.0],
+                3.0,
+                3.0,
+            ));
+            scene4.add_plane(Plane::new_finite(
+                // Red back
+                [-2.0 - 1.5, 0.0 + 1.0, -1.5 - 5.0],
+                [0.0, 0.0, 1.0],
+                [0.3, 0.0, 0.0],
+                3.0,
+                3.0,
+            ));
+            scene4.add_plane(Plane::new_finite(
+                // Red left
+                [-3.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0],
+                [1.0, 0.0, 0.0],
+                [0.4, 0.0, 0.0],
+                3.0,
+                3.0,
+            ));
+            scene4.add_plane(Plane::new_finite(
+                // Red bottom
+                [-2.0 - 1.5, -1.5 + 1.0, 0.0 - 5.0],
+                [0.0, 1.0, 0.0],
+                [0.5, 0.0, 0.0],
+                3.0,
+                3.0,
+            ));
+            scene4.add_plane(Plane::new_finite(
+                // Red top
+                [-2.0 - 1.5, 1.5 + 1.0, 0.0 - 5.0],
+                [0.0, -1.0, 0.0],
+                [0.6, 0.0, 0.0],
+                3.0,
+                3.0,
+            ));
 
-        scene4.add_plane(Plane::new_finite( // Blue right
-            [0.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0], 
-            [-1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.2],
-            3.0,
-            3.0
-        ));
-        scene4.add_plane(Plane::new_finite( // Blue back
-            [2.0 + 1.5, 0.0 + 1.0, -1.5 - 5.0], 
-            [0.0, 0.0, 1.0],
-            [0.0, 0.0, 0.3],
-            3.0,
-            3.0
-        ));
-        scene4.add_plane(Plane::new_finite( // Blue left
-            [3.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0], 
-            [1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.4],
-            3.0,
-            3.0
-        ));
-        scene4.add_plane(Plane::new_finite( // Blue bottom
-            [2.0 + 1.5, -1.5 + 1.0, 0.0 - 5.0], 
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.5],
-            3.0,
-            3.0
-        ));
-        scene4.add_plane(Plane::new_finite( // Blue top
-            [2.0 + 1.5, 1.5 + 1.0, 0.0 - 5.0], 
-            [0.0, -1.0, 0.0],
-            [0.0, 0.0, 0.6],
-            3.0,
-            3.0
-        ));
+            scene4.add_plane(Plane::new_finite(
+                // Blue right
+                [0.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0],
+                [-1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.2],
+                3.0,
+                3.0,
+            ));
+            scene4.add_plane(Plane::new_finite(
+                // Blue back
+                [2.0 + 1.5, 0.0 + 1.0, -1.5 - 5.0],
+                [0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.3],
+                3.0,
+                3.0,
+            ));
+            scene4.add_plane(Plane::new_finite(
+                // Blue left
+                [3.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.4],
+                3.0,
+                3.0,
+            ));
+            scene4.add_plane(Plane::new_finite(
+                // Blue bottom
+                [2.0 + 1.5, -1.5 + 1.0, 0.0 - 5.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.5],
+                3.0,
+                3.0,
+            ));
+            scene4.add_plane(Plane::new_finite(
+                // Blue top
+                [2.0 + 1.5, 1.5 + 1.0, 0.0 - 5.0],
+                [0.0, -1.0, 0.0],
+                [0.0, 0.0, 0.6],
+                3.0,
+                3.0,
+            ));
 
-        scene4.add_portal_pair(PortalPair::new(
-            Portal::new(
-                Vec3::new(-0.51 - 1.5, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(Vec3::Y, -Vec3::X),
-                e_a,
-                e_b,
-            ),
-            Portal::new(
-                Vec3::new(0.51 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(Vec3::Y, Vec3::X),
-                e_a,
-                e_b,
-            ),
-        ));
+            scene4.add_portal_pair(PortalPair::new(
+                Portal::new(
+                    Vec3::new(-0.51 - 1.5, 0.0 + 1.0, 0.0 - 5.0),
+                    Quat::from_rotation_arc(Vec3::Y, -Vec3::X),
+                    e_a,
+                    e_b,
+                ),
+                Portal::new(
+                    Vec3::new(0.51 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
+                    Quat::from_rotation_arc(Vec3::Y, Vec3::X),
+                    e_a,
+                    e_b,
+                ),
+            ));
 
-        scenes.push(scene4);
+            scenes.push(scene4);
         }
 
-        { // Scene 5: Infinite Portal Room
-        let mut scene5 = SceneData::new();
+        {
+            // Scene 5: Infinite Portal Room
+            let mut scene5 = SceneData::new();
 
-        scene5.add_plane(
-            Plane::new(
+            scene5.add_plane(Plane::new(
                 [0.0, -2.0, 0.0],
                 [0.0, 1.0, 0.0],
                 [0.2, 0.2, 0.2],
-            )
-        );
+            ));
 
-        scene5.add_plane(Plane::new_finite( // Red right
-            [0.6, 0.0 + 1.0, 0.0 - 5.0], 
-            [-1.0, 0.0, 0.0],
-            [0.2, 0.0, 0.0],
-            3.0,
-            3.0,
-        ));
-        scene5.add_plane(Plane::new_finite( // Red back
-            [0.0, 0.0 + 1.0, -1.5 - 5.0], 
-            [0.0, 0.0, 1.0],
-            [0.8, 0.8, 0.8],
-            1.2,
-            3.0,
-        ));
-        scene5.add_plane(Plane::new_finite( // Red left
-            [-0.6, 0.0 + 1.0, 0.0 - 5.0], 
-            [1.0, 0.0, 0.0],
-            [0.0, 0.6, 0.5],
-            3.0,
-            3.0,
-        ));
-        scene5.add_plane(Plane::new_finite( // Red bottom
-            [-0.0, -1.5 + 1.0, 0.0 - 5.0], 
-            [0.0, 1.0, 0.0],
-            [0.8, 0.8, 0.8],
-            3.0,
-            1.2,
-        ));
-        scene5.add_plane(Plane::new_finite( // Red top
-            [-0.0, 1.5 + 1.0, 0.0 - 5.0], 
-            [0.0, -1.0, 0.0],
-            [0.8, 0.8, 0.8],
-            3.0,
-            1.2,
-        ));
+            scene5.add_plane(Plane::new_finite(
+                // Red right
+                [0.6, 0.0 + 1.0, 0.0 - 5.0],
+                [-1.0, 0.0, 0.0],
+                [0.2, 0.0, 0.0],
+                3.0,
+                3.0,
+            ));
+            scene5.add_plane(Plane::new_finite(
+                // Red back
+                [0.0, 0.0 + 1.0, -1.5 - 5.0],
+                [0.0, 0.0, 1.0],
+                [0.8, 0.8, 0.8],
+                1.2,
+                3.0,
+            ));
+            scene5.add_plane(Plane::new_finite(
+                // Red left
+                [-0.6, 0.0 + 1.0, 0.0 - 5.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 0.6, 0.5],
+                3.0,
+                3.0,
+            ));
+            scene5.add_plane(Plane::new_finite(
+                // Red bottom
+                [-0.0, -1.5 + 1.0, 0.0 - 5.0],
+                [0.0, 1.0, 0.0],
+                [0.8, 0.8, 0.8],
+                3.0,
+                1.2,
+            ));
+            scene5.add_plane(Plane::new_finite(
+                // Red top
+                [-0.0, 1.5 + 1.0, 0.0 - 5.0],
+                [0.0, -1.0, 0.0],
+                [0.8, 0.8, 0.8],
+                3.0,
+                1.2,
+            ));
 
-        scene5.add_portal_pair(PortalPair::new(
-            Portal::new(
-                Vec3::new(-0.55, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(Vec3::Y, Vec3::X),
-                0.6,
-                1.0,
-            ),
-            Portal::new(
-                Vec3::new(0.55, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(Vec3::Y, -Vec3::X) * Quat::from_rotation_x(0.0),
-                0.6,
-                1.0,
-            ),
-        ));
-        // scene5.add_portal_pair(PortalPair::new(
-        //     Portal::new(
-        //         Vec3::new(0.0, 0.0 + 1.0, -1.3 - 5.0),
-        //         Quat::from_rotation_arc(Vec3::Y, Vec3::Z),
-        //         1.0,
-        //         1.0,
-        //     ),
-        //     Portal::new(
-        //         Vec3::new(1.4, 0.0 + 1.0, 4.0 - 5.0),
-        //         Quat::from_rotation_z(PI/2.0) * Quat::from_rotation_y(-PI/2.0),
-        //         1.0,
-        //         1.0,
-        //     ),
-        // ));
+            scene5.add_portal_pair(PortalPair::new(
+                Portal::new(
+                    Vec3::new(-0.55, 0.0 + 1.0, 0.0 - 5.0),
+                    Quat::from_rotation_arc(Vec3::Y, Vec3::X),
+                    0.6,
+                    1.0,
+                ),
+                Portal::new(
+                    Vec3::new(0.55, 0.0 + 1.0, 0.0 - 5.0),
+                    Quat::from_rotation_arc(Vec3::Y, -Vec3::X) * Quat::from_rotation_x(0.0),
+                    0.6,
+                    1.0,
+                ),
+            ));
+            // scene5.add_portal_pair(PortalPair::new(
+            //     Portal::new(
+            //         Vec3::new(0.0, 0.0 + 1.0, -1.3 - 5.0),
+            //         Quat::from_rotation_arc(Vec3::Y, Vec3::Z),
+            //         1.0,
+            //         1.0,
+            //     ),
+            //     Portal::new(
+            //         Vec3::new(1.4, 0.0 + 1.0, 4.0 - 5.0),
+            //         Quat::from_rotation_z(PI/2.0) * Quat::from_rotation_y(-PI/2.0),
+            //         1.0,
+            //         1.0,
+            //     ),
+            // ));
 
-        scenes.push(scene5);
+            scenes.push(scene5);
         }
 
-        { // Scene 6: Non-Euclidean Portal Maze
-        let mut scene6 = SceneData::new();
+        {
+            // Scene 6: Non-Euclidean Portal Maze
+            let mut scene6 = SceneData::new();
 
-        // Central Hub Room (Green theme)
-        scene6.add_plane(Plane::new_finite( // Hub floor
-            [0.0, -1.5, -5.0], 
-            [0.0, 1.0, 0.0],
-            [0.1, 0.3, 0.1],
-            4.0,
-            4.0
-        ));
-        scene6.add_plane(Plane::new_finite( // Hub ceiling
-            [0.0, 1.5, -5.0], 
-            [0.0, -1.0, 0.0],
-            [0.1, 0.3, 0.1],
-            4.0,
-            4.0
-        ));
+            // Central Hub Room (Green theme)
+            scene6.add_plane(Plane::new_finite(
+                // Hub floor
+                [0.0, -1.5, -5.0],
+                [0.0, 1.0, 0.0],
+                [0.1, 0.3, 0.1],
+                4.0,
+                4.0,
+            ));
+            scene6.add_plane(Plane::new_finite(
+                // Hub ceiling
+                [0.0, 1.5, -5.0],
+                [0.0, -1.0, 0.0],
+                [0.1, 0.3, 0.1],
+                4.0,
+                4.0,
+            ));
 
-        // North Corridor (leads to floating room)
-        scene6.add_plane(Plane::new_finite( // North wall with portal opening
-            [0.0, 0.0, -7.0], 
-            [0.0, 0.0, 1.0],
-            [0.2, 0.4, 0.2],
-            3.0,
-            3.0
-        ));
+            // North Corridor (leads to floating room)
+            scene6.add_plane(Plane::new_finite(
+                // North wall with portal opening
+                [0.0, 0.0, -7.0],
+                [0.0, 0.0, 1.0],
+                [0.2, 0.4, 0.2],
+                3.0,
+                3.0,
+            ));
 
-        // East Tower Room (Red theme, elevated)
-        scene6.add_plane(Plane::new_finite( // Tower floor
-            [8.0, 2.0, -5.0], 
-            [0.0, 1.0, 0.0],
-            [0.4, 0.1, 0.1],
-            3.0,
-            3.0
-        ));
-        scene6.add_plane(Plane::new_finite( // Tower east wall
-            [9.5, 3.5, -5.0], 
-            [-1.0, 0.0, 0.0],
-            [0.5, 0.1, 0.1],
-            3.0,
-            3.0
-        ));
-        scene6.add_plane(Plane::new_finite( // Tower north wall
-            [8.0, 3.5, -6.5], 
-            [0.0, 0.0, 1.0],
-            [0.3, 0.1, 0.1],
-            3.0,
-            3.0
-        ));
+            // East Tower Room (Red theme, elevated)
+            scene6.add_plane(Plane::new_finite(
+                // Tower floor
+                [8.0, 2.0, -5.0],
+                [0.0, 1.0, 0.0],
+                [0.4, 0.1, 0.1],
+                3.0,
+                3.0,
+            ));
+            scene6.add_plane(Plane::new_finite(
+                // Tower east wall
+                [9.5, 3.5, -5.0],
+                [-1.0, 0.0, 0.0],
+                [0.5, 0.1, 0.1],
+                3.0,
+                3.0,
+            ));
+            scene6.add_plane(Plane::new_finite(
+                // Tower north wall
+                [8.0, 3.5, -6.5],
+                [0.0, 0.0, 1.0],
+                [0.3, 0.1, 0.1],
+                3.0,
+                3.0,
+            ));
 
-        // Underground Chamber (Blue theme, below hub)
-        scene6.add_plane(Plane::new_finite( // Underground floor
-            [0.0, -8.0, -5.0], 
-            [0.0, 1.0, 0.0],
-            [0.1, 0.1, 0.4],
-            5.0,
-            5.0
-        ));
-        scene6.add_plane(Plane::new_finite( // Underground ceiling
-            [0.0, -5.5, -5.0], 
-            [0.0, -1.0, 0.0],
-            [0.1, 0.2, 0.5],
-            5.0,
-            5.0
-        ));
+            // Underground Chamber (Blue theme, below hub)
+            scene6.add_plane(Plane::new_finite(
+                // Underground floor
+                [0.0, -8.0, -5.0],
+                [0.0, 1.0, 0.0],
+                [0.1, 0.1, 0.4],
+                5.0,
+                5.0,
+            ));
+            scene6.add_plane(Plane::new_finite(
+                // Underground ceiling
+                [0.0, -5.5, -5.0],
+                [0.0, -1.0, 0.0],
+                [0.1, 0.2, 0.5],
+                5.0,
+                5.0,
+            ));
 
-        // Floating Island Room (Purple theme)
-        scene6.add_plane(Plane::new_finite( // Floating platform
-            [-12.0, 10.0, -2.0], 
-            [0.0, 1.0, 0.0],
-            [0.4, 0.1, 0.4],
-            2.5,
-            2.5
-        ));
+            // Floating Island Room (Purple theme)
+            scene6.add_plane(Plane::new_finite(
+                // Floating platform
+                [-12.0, 10.0, -2.0],
+                [0.0, 1.0, 0.0],
+                [0.4, 0.1, 0.4],
+                2.5,
+                2.5,
+            ));
 
-        // Portal Network:
-        // 1. Hub to Tower (East wall of hub connects to west wall of tower)
-        scene6.add_portal_pair(PortalPair::new(
-            Portal::new(
-                Vec3::new(1.8, 0.0, -5.0),
-                Quat::from_rotation_arc(Vec3::Y, -Vec3::X), // Facing east
-                0.8,
-                1.2,
-            ),
-            Portal::new(
-                Vec3::new(6.5, 3.5, -5.0),
-                Quat::from_rotation_arc(Vec3::Y, Vec3::X), // Facing west
-                0.8,
-                1.2,
-            ),
-        ));
+            // Portal Network:
+            // 1. Hub to Tower (East wall of hub connects to west wall of tower)
+            scene6.add_portal_pair(PortalPair::new(
+                Portal::new(
+                    Vec3::new(1.8, 0.0, -5.0),
+                    Quat::from_rotation_arc(Vec3::Y, -Vec3::X), // Facing east
+                    0.8,
+                    1.2,
+                ),
+                Portal::new(
+                    Vec3::new(6.5, 3.5, -5.0),
+                    Quat::from_rotation_arc(Vec3::Y, Vec3::X), // Facing west
+                    0.8,
+                    1.2,
+                ),
+            ));
 
-        // 2. Hub to Underground (Floor portal in hub connects to ceiling of underground)
-        scene6.add_portal_pair(PortalPair::new(
-            Portal::new(
-                Vec3::new(-1.0, -1.4, -4.0),
-                Quat::from_rotation_arc(Vec3::Y, -Vec3::Y), // Facing down
-                0.6,
-                0.6,
-            ),
-            Portal::new(
-                Vec3::new(0.0, -5.6, -5.0),
-                Quat::from_rotation_arc(Vec3::Y, Vec3::Y), // Facing up
-                0.6,
-                0.6,
-            ),
-        ));
+            // 2. Hub to Underground (Floor portal in hub connects to ceiling of underground)
+            scene6.add_portal_pair(PortalPair::new(
+                Portal::new(
+                    Vec3::new(-1.0, -1.4, -4.0),
+                    Quat::from_rotation_arc(Vec3::Y, -Vec3::Y), // Facing down
+                    0.6,
+                    0.6,
+                ),
+                Portal::new(
+                    Vec3::new(0.0, -5.6, -5.0),
+                    Quat::from_rotation_arc(Vec3::Y, Vec3::Y), // Facing up
+                    0.6,
+                    0.6,
+                ),
+            ));
 
-        // 3. Tower to Floating Island (impossible connection - tower ceiling to floating platform)
-        scene6.add_portal_pair(PortalPair::new(
-            Portal::new(
-                Vec3::new(8.0, 4.8, -5.0),
-                Quat::from_rotation_arc(Vec3::Y, Vec3::Y), // Facing up
-                0.5,
-                0.5,
-            ),
-            Portal::new(
-                Vec3::new(-12.0, 9.9, -2.0),
-                Quat::from_rotation_arc(Vec3::Y, -Vec3::Y), // Facing down
-                0.5,
-                0.5,
-            ),
-        ));
+            // 3. Tower to Floating Island (impossible connection - tower ceiling to floating platform)
+            scene6.add_portal_pair(PortalPair::new(
+                Portal::new(
+                    Vec3::new(8.0, 4.8, -5.0),
+                    Quat::from_rotation_arc(Vec3::Y, Vec3::Y), // Facing up
+                    0.5,
+                    0.5,
+                ),
+                Portal::new(
+                    Vec3::new(-12.0, 9.9, -2.0),
+                    Quat::from_rotation_arc(Vec3::Y, -Vec3::Y), // Facing down
+                    0.5,
+                    0.5,
+                ),
+            ));
 
-        // 4. Floating Island back to Hub North Wall (creates impossible loop)
-        scene6.add_portal_pair(PortalPair::new(
-            Portal::new(
-                Vec3::new(-12.0, 11.0, -0.5),
-                Quat::from_rotation_arc(Vec3::Y, -Vec3::Z), // Facing north
-                0.7,
-                0.9,
-            ),
-            Portal::new(
-                Vec3::new(0.0, 0.5, -6.9),
-                Quat::from_rotation_arc(Vec3::Y, Vec3::Z), // Facing south
-                0.7,
-                0.9,
-            ),
-        ));
+            // 4. Floating Island back to Hub North Wall (creates impossible loop)
+            scene6.add_portal_pair(PortalPair::new(
+                Portal::new(
+                    Vec3::new(-12.0, 11.0, -0.5),
+                    Quat::from_rotation_arc(Vec3::Y, -Vec3::Z), // Facing north
+                    0.7,
+                    0.9,
+                ),
+                Portal::new(
+                    Vec3::new(0.0, 0.5, -6.9),
+                    Quat::from_rotation_arc(Vec3::Y, Vec3::Z), // Facing south
+                    0.7,
+                    0.9,
+                ),
+            ));
 
-        scenes.push(scene6);
+            scenes.push(scene6);
         }
 
         scenes
