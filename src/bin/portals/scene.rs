@@ -250,19 +250,10 @@ impl Portal {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable, Default)]
 pub struct PortalPair {
     pub portal_a: Portal,
     pub portal_b: Portal,
-}
-
-impl Default for PortalPair {
-    fn default() -> Self {
-        Self {
-            portal_a: Portal::default(),
-            portal_b: Portal::default(),
-        }
-    }
 }
 
 impl PortalPair {
@@ -299,6 +290,11 @@ const MAX_PLANES: usize = 10;
 const MAX_ELLIPSES: usize = 4;
 const MAX_PORTAL_PAIRS: usize = 4;
 
+pub struct Scene {
+    pub name: String,
+    pub data: SceneData,
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 pub struct SceneData {
@@ -325,39 +321,42 @@ impl Default for SceneData {
     }
 }
 
-impl SceneData {
-    pub fn new() -> Self {
-        Self::default()
+impl Scene {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.into(),
+            data: SceneData::default(),
+        }
     }
 
     pub fn add_plane(&mut self, plane: Plane) {
-        if self.plane_count < MAX_PLANES as u32 {
-            self.planes[self.plane_count as usize] = plane;
-            self.plane_count += 1;
+        if self.data.plane_count < MAX_PLANES as u32 {
+            self.data.planes[self.data.plane_count as usize] = plane;
+            self.data.plane_count += 1;
         } else {
             println!("Max plane count reached: {}", MAX_PLANES);
         }
     }
 
     pub fn add_ellipse(&mut self, ellipse: Ellipse) {
-        if self.ellipse_count < MAX_ELLIPSES as u32 {
-            self.ellipses[self.ellipse_count as usize] = ellipse;
-            self.ellipse_count += 1;
+        if self.data.ellipse_count < MAX_ELLIPSES as u32 {
+            self.data.ellipses[self.data.ellipse_count as usize] = ellipse;
+            self.data.ellipse_count += 1;
         } else {
             println!("Max ellipse count reached: {}", MAX_ELLIPSES);
         }
     }
 
     pub fn add_portal_pair(&mut self, portal_pair: PortalPair) {
-        if self.portal_pair_count < MAX_PORTAL_PAIRS as u32 {
-            self.portal_pairs[self.portal_pair_count as usize] = portal_pair;
-            self.portal_pair_count += 1;
+        if self.data.portal_pair_count < MAX_PORTAL_PAIRS as u32 {
+            self.data.portal_pairs[self.data.portal_pair_count as usize] = portal_pair;
+            self.data.portal_pair_count += 1;
         } else {
             println!("Max portal pair count reached: {}", MAX_PORTAL_PAIRS);
         }
     }
 
-    pub fn create_scenes() -> Vec<SceneData> {
+    pub fn create_scenes() -> Vec<Scene> {
         let mut scenes = Vec::new();
 
         let e_a = 0.6;
@@ -366,7 +365,7 @@ impl SceneData {
 
         {
             // Scene 1: Ellipse Showcase
-            let mut scene1 = SceneData::new();
+            let mut scene1 = Scene::new("Ellipse Showcase");
 
             scene1.add_plane(Plane::new(
                 [0.0, -2.0, 0.0],
@@ -399,7 +398,7 @@ impl SceneData {
 
         {
             // Scene 2: Single Portal Pair Setup
-            let mut scene2 = SceneData::new();
+            let mut scene2 = Scene::new("Single Portal Pair Setup");
 
             scene2.add_plane(Plane::new(
                 [0.1, 0.0, 0.1],
@@ -450,7 +449,7 @@ impl SceneData {
 
         {
             // Scene 3: Single Portal Pair
-            let mut scene3 = SceneData::new();
+            let mut scene3 = Scene::new("Single Portal Pair");
 
             scene3.add_plane(Plane::new(
                 [0.1, 0.0, 0.1],
@@ -478,13 +477,13 @@ impl SceneData {
 
             scene3.add_portal_pair(PortalPair::new(
                 Portal::new(
-                    scenes[1].ellipses[0].center.into(),
+                    scenes[1].data.ellipses[0].center.into(),
                     Quat::from_rotation_arc(Vec3::Y, Vec3::Z),
                     0.6,
                     1.0,
                 ),
                 Portal::new(
-                    scenes[1].ellipses[1].center.into(),
+                    scenes[1].data.ellipses[1].center.into(),
                     Quat::from_rotation_arc(Vec3::Y, Vec3::Z) * Quat::from_rotation_z(PI),
                     0.6,
                     1.0,
@@ -496,7 +495,7 @@ impl SceneData {
 
         {
             // Scene 4: Rooms
-            let mut scene4 = SceneData::new();
+            let mut scene4 = Scene::new("Rooms");
 
             scene4.add_plane(Plane::new_finite(
                 // Red right
@@ -600,7 +599,7 @@ impl SceneData {
 
         {
             // Scene 5: Infinite Portal Room
-            let mut scene5 = SceneData::new();
+            let mut scene5 = Scene::new("Infinite Portal Room");
 
             scene5.add_plane(Plane::new(
                 [0.0, -2.0, 0.0],
@@ -683,7 +682,7 @@ impl SceneData {
 
         {
             // Scene 6: Non-Euclidean Portal Maze
-            let mut scene6 = SceneData::new();
+            let mut scene6 = Scene::new("Non-Euclidean Portal Maze");
 
             // Central Hub Room (Green theme)
             scene6.add_plane(Plane::new_finite(

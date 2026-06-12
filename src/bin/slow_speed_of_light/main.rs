@@ -273,16 +273,11 @@ fn key_released(_app: &App, model: &mut Model, key: Key) {
     model.keys_pressed.remove(&key);
 }
 
-fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) {
+fn mouse_pressed(_app: &App, model: &mut Model, _button: MouseButton) {
     if !model.mouse_locked {
         model.mouse_locked = true;
-        model.last_mouse_pos = None;
-
-        let window = app.window(model.window_id).unwrap();
-        let _ = window.set_cursor_grab(true);
-        window.set_cursor_visible(false);
-
         println!("Mouse locked");
+        model.last_mouse_pos = None;
     }
 }
 
@@ -299,7 +294,7 @@ fn mouse_moved(_app: &App, model: &mut Model, pos: Point2) {
     }
 }
 
-fn update(_app: &App, model: &mut Model, update: Update) {
+fn update(app: &App, model: &mut Model, update: Update) {
     let dt = update.since_last.as_secs_f32();
 
     let mut movement = Vec3::ZERO;
@@ -326,10 +321,17 @@ fn update(_app: &App, model: &mut Model, update: Update) {
     if movement.length() > 0.0 {
         movement = movement.normalize() * model.camera.speed * dt;
         model.camera.velocity += movement;
+    } else {
+        model.camera.velocity *= 0.98;
     }
 
-    model.camera.velocity *= 0.98;
     model.camera.position += model.camera.velocity * dt;
+
+    if model.mouse_locked {
+        let window = app.window(model.window_id).unwrap();
+        window.set_cursor_grab(true).unwrap();
+        window.set_cursor_visible(true);
+    }
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {

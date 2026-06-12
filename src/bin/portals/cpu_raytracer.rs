@@ -1,8 +1,9 @@
-
 use nannou::prelude::*;
 
-use crate::{Model, scene::{Ellipse, Plane, Portal, SceneData}};
-
+use crate::{
+    Model,
+    scene::{Ellipse, Plane, Portal, SceneData},
+};
 
 pub struct DebugRay {
     pub segments: Vec<RaySegment>,
@@ -47,15 +48,16 @@ pub fn shoot_debug_ray(model: &mut Model) {
             let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
             let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
 
-            let ray_direction = (camera_forward + 
-                                uv_x * camera_right * camera.fov_multiplier +
-                                uv_y * camera_up * camera.fov_multiplier).normalize();
+            let ray_direction = (camera_forward
+                + uv_x * camera_right * camera.fov_multiplier
+                + uv_y * camera_up * camera.fov_multiplier)
+                .normalize();
 
             let debug_ray = trace_debug_ray(
-                &model.scenes[model.current_scene as usize],
+                &model.scenes[model.current_scene].data,
                 camera.position,
                 ray_direction,
-                10
+                10,
             );
 
             debug_rays.push(debug_ray);
@@ -77,7 +79,11 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
             segments.push(RaySegment {
                 start: current_ray_origin,
                 end: current_ray_origin + current_ray_direction * 20.0,
-                color: if bounce == 0 { [1.0, 1.0, 0.0] } else { [0.0, 1.0, 1.0] },
+                color: if bounce == 0 {
+                    [1.0, 1.0, 0.0]
+                } else {
+                    [0.0, 1.0, 1.0]
+                },
                 // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
             });
             break;
@@ -91,23 +97,37 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
                 (&portal_pair.portal_a, &portal_pair.portal_b),
                 (&portal_pair.portal_b, &portal_pair.portal_a),
             ] {
-                let portal_t = ray_ellipse_intersect_cpu(current_ray_origin, current_ray_direction, in_portal.ellipse);
+                let portal_t = ray_ellipse_intersect_cpu(
+                    current_ray_origin,
+                    current_ray_direction,
+                    in_portal.ellipse,
+                );
 
                 if portal_t > 0.001 && portal_t <= hit_info.t + 0.001 {
                     let portal_normal = Vec3::from(in_portal.ellipse.normal);
 
                     if current_ray_direction.dot(portal_normal) < 0.0 {
-                        let portal_hit_point = current_ray_origin + portal_t * current_ray_direction;
+                        let portal_hit_point =
+                            current_ray_origin + portal_t * current_ray_direction;
 
                         segments.push(RaySegment {
                             start: current_ray_origin,
                             end: portal_hit_point,
-                            color: if bounce == 0 { [1.0, 1.0, 0.0] } else { [0.0, 1.0, 1.0] },
+                            color: if bounce == 0 {
+                                [1.0, 1.0, 0.0]
+                            } else {
+                                [0.0, 1.0, 1.0]
+                            },
                             // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
                         });
 
-                        let transformed_point = transform_point_through_portal(portal_hit_point, in_portal, out_portal);
-                        let transformed_direction = transform_direction_through_portal(current_ray_direction, in_portal, out_portal);
+                        let transformed_point =
+                            transform_point_through_portal(portal_hit_point, in_portal, out_portal);
+                        let transformed_direction = transform_direction_through_portal(
+                            current_ray_direction,
+                            in_portal,
+                            out_portal,
+                        );
 
                         current_ray_origin = transformed_point;
                         current_ray_direction = transformed_direction;
@@ -126,16 +146,18 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
             segments.push(RaySegment {
                 start: current_ray_origin,
                 end: hit_info.point,
-                color: if bounce == 0 { [1.0, 1.0, 0.0] } else { [0.0, 1.0, 1.0] },
-                // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal }, 
+                color: if bounce == 0 {
+                    [1.0, 1.0, 0.0]
+                } else {
+                    [0.0, 1.0, 1.0]
+                },
+                // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
             });
             break;
         }
     }
 
-    DebugRay {
-        segments,
-    }
+    DebugRay { segments }
 }
 
 fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> HitInfoCpu {
@@ -163,7 +185,7 @@ fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> Hi
     for i in 0..scene.ellipse_count {
         let ellipse = &scene.ellipses[i as usize];
         let t = ray_ellipse_intersect_cpu(ray_origin, ray_direction, *ellipse);
-        
+
         if t > 0.001 && t < hit_info.t {
             hit_info.hit = true;
             hit_info.t = t;
@@ -179,14 +201,14 @@ fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> Hi
 fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) -> f32 {
     let plane_point = Vec3::from(plane.point);
     let plane_normal = Vec3::from(plane.normal);
-    
+
     let denom = plane_normal.dot(ray_direction);
     if denom.abs() < 1e-6 {
         return -1.0;
     }
-    
+
     let t = (plane_point - ray_origin).dot(plane_normal) / denom;
-    
+
     // Check finite plane bounds if needed
     if plane.is_infinite < 0.5 {
         let hit_point = ray_origin + t * ray_direction;
@@ -207,15 +229,11 @@ fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) 
             return -1.0; // Outside bounds
         }
     }
-    
+
     t
 }
 
-fn ray_ellipse_intersect_cpu(
-    ray_origin: Vec3,
-    ray_direction: Vec3,
-    ellipse: Ellipse
-) -> f32 {
+fn ray_ellipse_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, ellipse: Ellipse) -> f32 {
     let center = Vec3::from(ellipse.center);
     let normal = Vec3::from(ellipse.normal);
 
@@ -243,8 +261,8 @@ fn ray_ellipse_intersect_cpu(
     let u = local_point.dot(u_axis);
     let v = local_point.dot(v_axis);
 
-    let ellipse_test = (u*u) / (ellipse.radius_a * ellipse.radius_a) + 
-                       (v*v) / (ellipse.radius_b * ellipse.radius_b);
+    let ellipse_test = (u * u) / (ellipse.radius_a * ellipse.radius_a)
+        + (v * v) / (ellipse.radius_b * ellipse.radius_b);
 
     if ellipse_test > 1.0 {
         return -1.0;
@@ -252,23 +270,6 @@ fn ray_ellipse_intersect_cpu(
 
     t
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 pub fn check_camera_portal_teleport(
     scene: &SceneData,
@@ -328,17 +329,10 @@ fn check_single_portal_teleport(
             let hit_point = ray_origin + t * ray_direction;
             let remaining_distance = max_distance - t;
 
-            let teleported_point = transform_point_through_portal(
-                hit_point,
-                in_portal,
-                out_portal,
-            );
+            let teleported_point = transform_point_through_portal(hit_point, in_portal, out_portal);
 
-            let transformed_direction = transform_direction_through_portal(
-                ray_direction,
-                in_portal,
-                out_portal,
-            );
+            let transformed_direction =
+                transform_direction_through_portal(ray_direction, in_portal, out_portal);
 
             return Some(teleported_point + remaining_distance * transformed_direction);
         }
@@ -347,38 +341,22 @@ fn check_single_portal_teleport(
     None
 }
 
-
-
-fn transform_point_through_portal(
-    point: Vec3, 
-    in_portal: &Portal, 
-    out_portal: &Portal
-) -> Vec3 {
+fn transform_point_through_portal(point: Vec3, in_portal: &Portal, out_portal: &Portal) -> Vec3 {
     let in_transform = Mat4::from_cols_array(&in_portal.inverse_transformation_matrix);
     let out_transform = Mat4::from_cols_array(&out_portal.transformation_matrix);
-    
+
     let local_point = in_transform.transform_point3(point);
     out_transform.transform_point3(local_point)
 }
 
 fn transform_direction_through_portal(
-    direction: Vec3, 
-    in_portal: &Portal, 
-    out_portal: &Portal
+    direction: Vec3,
+    in_portal: &Portal,
+    out_portal: &Portal,
 ) -> Vec3 {
     let in_transform = Mat4::from_cols_array(&in_portal.inverse_transformation_matrix);
     let out_transform = Mat4::from_cols_array(&out_portal.transformation_matrix);
-    
+
     let local_direction = in_transform.transform_vector3(direction);
     out_transform.transform_vector3(local_direction).normalize()
 }
-
-
-
-
-
-
-
-
-
-
