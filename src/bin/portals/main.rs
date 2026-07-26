@@ -1,28 +1,18 @@
-use bytemuck::{Pod, Zeroable};
 use nannou::prelude::*;
 
+mod gpu;
+use gpu::GpuState;
+
 mod scene;
-use scene::SceneData;
+use scene::Scene;
 
 mod cpu_raytracer;
-use cpu_raytracer::{DebugRay, check_camera_portal_teleport, shoot_debug_ray};
+use cpu_raytracer::{DebugRay, check_camera_portal_teleport};
 
-use crate::scene::Scene;
+use crate::gpu::Uniform;
 
 fn main() {
     nannou::app(model).update(update).run();
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct Uniforms {
-    resolution: [f32; 2],
-    time: f32,
-    scene_id: u32,
-    camera_pos: [f32; 3],
-    _padding2: f32,
-    camera_dir: [f32; 3],
-    fov: f32,
 }
 
 struct Camera {
@@ -137,7 +127,7 @@ impl Camera {
         screen_size: Vec2,
     ) -> Option<Vec2> {
         let ray_dir = (invisible_point - visible_point).normalize();
-        let screen_bounds = vec2(screen_size.x * 0.5, screen_size.y * 0.5);
+        let screen_bounds = screen_size * 0.5;
 
         // Sample points along the ray to find screen intersection
         for i in 1..100 {
@@ -187,15 +177,6 @@ impl Camera {
     }
 }
 
-struct GpuState {
-    render_pipeline: wgpu::RenderPipeline,
-
-    uniform_buffer: wgpu::Buffer,
-    scene_buffer: wgpu::Buffer,
-
-    uniform_bind_group: wgpu::BindGroup,
-}
-
 struct Model {
     window_id: WindowId,
     state: GpuState,
@@ -232,119 +213,17 @@ fn model(app: &App) -> Model {
         .mouse_moved(mouse_moved)
         .build()
         .unwrap();
+
     let window = app.window(window_id).unwrap();
     let device = window.device();
 
     let scenes = scene::data::create_scenes();
 
-    // Create uniform buffer
-    let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Uniform Buffer"),
-        size: std::mem::size_of::<Uniforms>() as u64,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-
-    let scene_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Scene Buffer"),
-        size: std::mem::size_of::<SceneData>() as u64,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-
-    // Create bind group layout
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some("Uniform Bind Group Layout"),
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-        ],
-    });
-
-    // Create bind group
-    let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Uniform Bind Group"),
-        layout: &bind_group_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: scene_buffer.as_entire_binding(),
-            },
-        ],
-    });
-
-    let render_shader = include_str!("render.wgsl");
-    let render_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Render Shader"),
-        source: wgpu::ShaderSource::Wgsl(render_shader.into()),
-    });
-
-    let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Render Pipeline Layout"),
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
-    });
-
-    let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("Render Pipeline"),
-        layout: Some(&render_pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &render_module,
-            entry_point: "vs_main",
-            buffers: &[],
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &render_module,
-            entry_point: "fs_main",
-            targets: &[Some(wgpu::ColorTargetState {
-                format: Frame::TEXTURE_FORMAT,
-                blend: None,
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-        }),
-        primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleList,
-            ..Default::default()
-        },
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState {
-            count: 4,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        },
-        multiview: None,
-    });
+    let state = GpuState::new(device);
 
     Model {
         window_id,
-        state: GpuState {
-            render_pipeline,
-            uniform_buffer,
-            scene_buffer,
-            uniform_bind_group,
-        },
+        state,
         current_scene: 3,
         scenes,
         camera: Camera::new(),
@@ -376,7 +255,7 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
             );
         }
         Key::R => {
-            shoot_debug_ray(model);
+            model.shoot_debug_ray();
         }
         Key::C => {
             model.debug_rays = Vec::new();
@@ -552,138 +431,20 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
     let queue = window.queue();
 
-    let camera_pos = model.camera.position.to_array();
-    let camera_dir = model.camera.forward().to_array();
-
     // Update uniforms
-    let (w, h) = window.inner_size_pixels();
-    let screen_size = vec2(w as f32, h as f32);
-
-    let uniforms = Uniforms {
-        resolution: [w as f32, h as f32],
-        time: app.time,
-        scene_id: model.current_scene as u32,
-        camera_pos,
-        _padding2: 0.0,
-        camera_dir,
-        fov: model.camera.fov_multiplier,
-    };
+    let (w, h) = window.inner_size_points();
+    let screen_size = vec2(w, h);
 
     let scene_data = model.scenes[model.current_scene].data;
 
-    queue.write_buffer(
-        &model.state.uniform_buffer,
-        0,
-        bytemuck::cast_slice(&[uniforms]),
-    );
-    queue.write_buffer(
-        &model.state.scene_buffer,
-        0,
-        bytemuck::cast_slice(&[scene_data]),
-    );
+    let uniform = Uniform::build(w, h, app.time, model.current_scene, &model.camera);
+    model.state.write_uniform(queue, uniform);
+    model.state.write_scene_data(queue, scene_data);
 
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("Render Encoder"),
-    });
-
-    let render_pass_desc = wgpu::RenderPassDescriptor {
-        label: Some("Render Pass"),
-        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: frame.texture_view(),
-            resolve_target: None,
-            ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                store: true,
-            },
-        })],
-        depth_stencil_attachment: None,
-    };
-
-    {
-        let mut render_pass = encoder.begin_render_pass(&render_pass_desc);
-        render_pass.set_pipeline(&model.state.render_pipeline);
-        render_pass.set_bind_group(0, &model.state.uniform_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
-    }
-    queue.submit(Some(encoder.finish()));
+    model.state.render(device, queue, &frame);
 
     let draw = app.draw();
-
-    for ray in model.debug_rays.iter() {
-        for segment in &ray.segments {
-            // Try to get screen positions for both points
-            let start_2d = model.camera.world_to_screen(segment.start, screen_size);
-            let end_2d = model.camera.world_to_screen(segment.end, screen_size);
-
-            // Handle different visibility cases
-            match (start_2d, end_2d) {
-                // Both points visible - draw normally
-                (Some(start), Some(end)) => {
-                    draw.line()
-                        .start(pt2(start.x, start.y))
-                        .end(pt2(end.x, end.y))
-                        .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                        .weight(3.0);
-                }
-                // Only start visible - clip to screen edge
-                (Some(start), None) => {
-                    if let Some(clipped_end) = Camera::clip_ray_to_screen(
-                        segment.start,
-                        segment.end,
-                        &model.camera,
-                        screen_size,
-                    ) {
-                        draw.line()
-                            .start(pt2(start.x, start.y))
-                            .end(pt2(clipped_end.x, clipped_end.y))
-                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                            .weight(3.0);
-                    }
-                }
-                // Only end visible - clip from screen edge
-                (None, Some(end)) => {
-                    if let Some(clipped_start) = Camera::clip_ray_to_screen(
-                        segment.end,
-                        segment.start,
-                        &model.camera,
-                        screen_size,
-                    ) {
-                        draw.line()
-                            .start(pt2(clipped_start.x, clipped_start.y))
-                            .end(pt2(end.x, end.y))
-                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                            .weight(3.0);
-                    }
-                }
-                // Neither visible - try to find screen intersection
-                (None, None) => {
-                    if let Some((clipped_start, clipped_end)) = Camera::clip_line_segment_to_screen(
-                        segment.start,
-                        segment.end,
-                        &model.camera,
-                        screen_size,
-                    ) {
-                        draw.line()
-                            .start(pt2(clipped_start.x, clipped_start.y))
-                            .end(pt2(clipped_end.x, clipped_end.y))
-                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                            .weight(3.0);
-                    }
-                }
-            }
-        }
-
-        if let Some(first_segment) = ray.segments.first()
-            && let Some(origin_2d) = model
-                .camera
-                .world_to_screen(first_segment.start, screen_size)
-        {
-            draw.ellipse()
-                .xy(pt2(origin_2d.x, origin_2d.y))
-                .radius(5.0)
-                .color(RED);
-        }
-    }
+    model.draw_debug_ray(&draw, screen_size);
 
     draw.to_frame(app, &frame).unwrap();
 }

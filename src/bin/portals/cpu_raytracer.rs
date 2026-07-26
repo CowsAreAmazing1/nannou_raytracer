@@ -1,7 +1,7 @@
 use nannou::prelude::*;
 
 use crate::{
-    Model,
+    Camera, Model,
     scene::{
         SceneData,
         portal::Portal,
@@ -27,42 +27,124 @@ struct HitInfoCpu {
     color: [f32; 3],
 }
 
-pub fn shoot_debug_ray(model: &mut Model) {
-    let camera = &model.camera;
+impl Model {
+    pub fn shoot_debug_ray(&mut self) {
+        let camera = &self.camera;
 
-    let camera_forward = camera.forward();
-    let world_up = Vec3::Y;
-    let camera_right = camera_forward.cross(world_up).normalize();
-    let camera_up = camera_right.cross(camera_forward);
+        let camera_forward = camera.forward();
+        let world_up = Vec3::Y;
+        let camera_right = camera_forward.cross(world_up).normalize();
+        let camera_up = camera_right.cross(camera_forward);
 
-    let mut debug_rays = vec![];
+        let mut debug_rays = vec![];
 
-    let m = 0.2;
-    let res_x = 8;
-    let res_y = 8;
+        let m = 0.2;
+        let res_x = 8;
+        let res_y = 8;
 
-    for x in 0..res_x {
-        for y in 0..res_y {
-            let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
-            let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
+        for x in 0..res_x {
+            for y in 0..res_y {
+                let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
+                let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
 
-            let ray_direction = (camera_forward
-                + uv_x * camera_right * camera.fov_multiplier
-                + uv_y * camera_up * camera.fov_multiplier)
-                .normalize();
+                let ray_direction = (camera_forward
+                    + uv_x * camera_right * camera.fov_multiplier
+                    + uv_y * camera_up * camera.fov_multiplier)
+                    .normalize();
 
-            let debug_ray = trace_debug_ray(
-                &model.scenes[model.current_scene].data,
-                camera.position,
-                ray_direction,
-                10,
-            );
+                let debug_ray = trace_debug_ray(
+                    &self.scenes[self.current_scene].data,
+                    camera.position,
+                    ray_direction,
+                    10,
+                );
 
-            debug_rays.push(debug_ray);
+                debug_rays.push(debug_ray);
+            }
         }
+
+        self.debug_rays.append(&mut debug_rays);
     }
 
-    model.debug_rays.append(&mut debug_rays);
+    pub fn draw_debug_ray(&self, draw: &Draw, screen_size: Vec2) {
+        for ray in self.debug_rays.iter() {
+            for segment in &ray.segments {
+                // Try to get screen positions for both points
+                let start_2d = self.camera.world_to_screen(segment.start, screen_size);
+                let end_2d = self.camera.world_to_screen(segment.end, screen_size);
+
+                // Handle different visibility cases
+                match (start_2d, end_2d) {
+                    // Both points visible - draw normally
+                    (Some(start), Some(end)) => {
+                        draw.line()
+                            .start(pt2(start.x, start.y))
+                            .end(pt2(end.x, end.y))
+                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                            .weight(3.0);
+                    }
+                    // Only start visible - clip to screen edge
+                    (Some(start), None) => {
+                        if let Some(clipped_end) = Camera::clip_ray_to_screen(
+                            segment.start,
+                            segment.end,
+                            &self.camera,
+                            screen_size,
+                        ) {
+                            draw.line()
+                                .start(pt2(start.x, start.y))
+                                .end(pt2(clipped_end.x, clipped_end.y))
+                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                                .weight(3.0);
+                        }
+                    }
+                    // Only end visible - clip from screen edge
+                    (None, Some(end)) => {
+                        if let Some(clipped_start) = Camera::clip_ray_to_screen(
+                            segment.end,
+                            segment.start,
+                            &self.camera,
+                            screen_size,
+                        ) {
+                            draw.line()
+                                .start(pt2(clipped_start.x, clipped_start.y))
+                                .end(pt2(end.x, end.y))
+                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                                .weight(3.0);
+                        }
+                    }
+                    // Neither visible - try to find screen intersection
+                    (None, None) => {
+                        if let Some((clipped_start, clipped_end)) =
+                            Camera::clip_line_segment_to_screen(
+                                segment.start,
+                                segment.end,
+                                &self.camera,
+                                screen_size,
+                            )
+                        {
+                            draw.line()
+                                .start(pt2(clipped_start.x, clipped_start.y))
+                                .end(pt2(clipped_end.x, clipped_end.y))
+                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                                .weight(3.0);
+                        }
+                    }
+                }
+            }
+
+            if let Some(first_segment) = ray.segments.first()
+                && let Some(origin_2d) = self
+                    .camera
+                    .world_to_screen(first_segment.start, screen_size)
+            {
+                draw.ellipse()
+                    .xy(pt2(origin_2d.x, origin_2d.y))
+                    .radius(5.0)
+                    .color(RED);
+            }
+        }
+    }
 }
 
 fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces: u32) -> DebugRay {
