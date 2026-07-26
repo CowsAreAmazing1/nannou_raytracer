@@ -63,7 +63,7 @@ impl Camera {
     }
 
     fn up(&self) -> Vec3 {
-        vec3(0.0, 1.0, 0.0)
+        Vec3::Y
     }
 
     fn shader_camera_right(&self) -> Vec3 {
@@ -78,7 +78,7 @@ impl Camera {
         camera_right.cross(camera_forward)
     }
 
-    fn world_to_screen(&self, world_pos: Vec3, screen_size: Vec2) -> Option<Vec2> {
+    fn world_to_screen_unbounded(&self, world_pos: Vec3, screen_size: Vec2) -> Option<Vec2> {
         // Transform to camera space
         let relative_pos = world_pos - self.position;
 
@@ -103,8 +103,8 @@ impl Camera {
 
         // Convert to UV coordinates like the shader does
         let fov_radians = 2.0 * self.fov_multiplier.atan();
-        let uv_x = (right_offset / forward_dist) / fov_radians;
-        let uv_y = (up_offset / forward_dist) / fov_radians;
+        let uv_x = right_offset / forward_dist / fov_radians;
+        let uv_y = up_offset / forward_dist / fov_radians;
 
         // Apply aspect ratio correction like shader
         let corrected_uv_x = uv_x / aspect_ratio;
@@ -113,41 +113,21 @@ impl Camera {
         let screen_x = corrected_uv_x * screen_size.x * 0.5;
         let screen_y = uv_y * screen_size.y * 0.5; // Flip Y for Nannou
 
-        // Check bounds
-        if screen_x.abs() > screen_size.x * 0.5 || screen_y.abs() > screen_size.y * 0.5 {
-            return None;
-        }
-
         Some(vec2(screen_x, screen_y))
     }
 
-    fn world_to_screen_unbounded(&self, world_pos: Vec3, screen_size: Vec2) -> Option<Vec2> {
-        let relative_pos = world_pos - self.position;
+    fn world_to_screen(&self, world_pos: Vec3, screen_size: Vec2) -> Option<Vec2> {
+        self.world_to_screen_unbounded(world_pos, screen_size)
+            .and_then(|screen_pos| {
+                // Check bounds
+                if screen_pos.x.abs() > screen_size.x * 0.5
+                    || screen_pos.y.abs() > screen_size.y * 0.5
+                {
+                    return None;
+                }
 
-        let camera_forward = self.forward();
-        let camera_right = self.shader_camera_right();
-        let camera_up = self.shader_camera_up();
-
-        let forward_dist = relative_pos.dot(camera_forward);
-
-        // Check if behind camera
-        if forward_dist <= 0.1 {
-            return None;
-        }
-
-        let right_offset = relative_pos.dot(camera_right);
-        let up_offset = relative_pos.dot(camera_up);
-
-        let aspect_ratio = screen_size.x / screen_size.y;
-        let fov_radians = 2.0 * self.fov_multiplier.atan();
-        let uv_x = (right_offset / forward_dist) / fov_radians;
-        let uv_y = (up_offset / forward_dist) / fov_radians;
-
-        let corrected_uv_x = uv_x / aspect_ratio;
-        let screen_x = corrected_uv_x * screen_size.x * 0.5;
-        let screen_y = uv_y * screen_size.y * 0.5;
-
-        Some(vec2(screen_x, screen_y))
+                Some(screen_pos)
+            })
     }
 
     fn clip_ray_to_screen(
@@ -237,6 +217,8 @@ impl Model {
                 self.scenes[scene_id].name
             );
             self.current_scene = scene_id;
+        } else {
+            println!("Scene ID {} is out of bounds", scene_id);
         }
     }
 }
@@ -253,7 +235,7 @@ fn model(app: &App) -> Model {
     let window = app.window(window_id).unwrap();
     let device = window.device();
 
-    let scenes = Scene::create_scenes();
+    let scenes = scene::data::create_scenes();
 
     // Create uniform buffer
     let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -375,23 +357,15 @@ fn model(app: &App) -> Model {
 
 fn key_pressed(_app: &App, model: &mut Model, key: Key) {
     match key {
-        Key::Key1 => {
-            model.switch_scene(0);
+        Key::Right => {
+            if model.current_scene + 1 < model.scenes.len() {
+                model.switch_scene(model.current_scene + 1);
+            }
         }
-        Key::Key2 => {
-            model.switch_scene(1);
-        }
-        Key::Key3 => {
-            model.switch_scene(2);
-        }
-        Key::Key4 => {
-            model.switch_scene(3);
-        }
-        Key::Key5 => {
-            model.switch_scene(4);
-        }
-        Key::Key6 => {
-            model.switch_scene(5);
+        Key::Left => {
+            if model.current_scene > 0 {
+                model.switch_scene(model.current_scene - 1);
+            }
         }
         Key::Tab => {
             model.mouse_locked = !model.mouse_locked;
@@ -406,14 +380,6 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
         }
         Key::C => {
             model.debug_rays = Vec::new();
-        }
-        Key::Equals => {
-            model.camera.fov_multiplier = (model.camera.fov_multiplier + 0.01).min(3.0);
-            println!("FOV: {:.2}", model.camera.fov_multiplier);
-        }
-        Key::Minus => {
-            model.camera.fov_multiplier = (model.camera.fov_multiplier - 0.01).max(0.1);
-            println!("FOV: {:.2}", model.camera.fov_multiplier);
         }
         _ => {}
     }
@@ -472,6 +438,14 @@ fn update(app: &App, model: &mut Model, update: Update) {
     if app.keys.down.contains(&Key::LShift) {
         movement -= model.camera.up();
     }
+    if app.keys.down.contains(&Key::Equals) {
+        model.camera.fov_multiplier = (model.camera.fov_multiplier + 0.01).min(3.0);
+        println!("FOV: {:.2}", model.camera.fov_multiplier);
+    }
+    if app.keys.down.contains(&Key::Minus) {
+        model.camera.fov_multiplier = (model.camera.fov_multiplier - 0.01).max(0.1);
+        println!("FOV: {:.2}", model.camera.fov_multiplier);
+    }
 
     if movement.length() > 0.0 {
         movement = movement.normalize() * model.camera.speed * dt;
@@ -488,32 +462,29 @@ fn update(app: &App, model: &mut Model, update: Update) {
         }
     }
 
+    // let lerp = app.time % 1.0;
+    // let pos = lerp * (1.0 - lerp) * Vec3::ZERO + lerp * Vec3::new(0.0, 1.0, 5.0);
+
+    // model.camera.position = pos;
+
     animate_portals(model, app.time);
 }
 
 fn animate_portals(model: &mut Model, time: f32) {
-    if model.current_scene == 7 {
+    if model.current_scene == 5 {
         let scene = &mut model.scenes[model.current_scene];
 
         if scene.data.portal_pair_count > 0 {
             // Oscillating portals
-            let offset_a = Vec3::new((time * 0.5).sin() * 0.3, 0.0, 0.0);
-            let offset_b = Vec3::new((time * 0.7).cos() * 0.2, (time * 0.3).sin() * 0.2, 0.0);
+            let base_pos_a = scene.data.portal_pairs[0].portal_a.position();
+            let base_pos_b = scene.data.portal_pairs[0].portal_b.position();
 
-            let base_pos_a = Vec3::new(-1.4, 1.0, -5.0);
-            let base_pos_b = Vec3::new(1.4, 1.0, -5.0);
+            let rot_a = Quat::from_rotation_y((time * 0.2).sin())
+                * Quat::from_rotation_arc(Vec3::Y, Vec3::X);
+            // let rot_b = Quat::from_rotation_y((-time * 0.3).sin())
+            // * Quat::from_rotation_arc(Vec3::Y, -Vec3::X);
 
-            let rot_a =
-                Quat::from_rotation_y(time * 0.2) * Quat::from_rotation_arc(Vec3::Y, Vec3::X);
-            let rot_b =
-                Quat::from_rotation_y(-time * 0.3) * Quat::from_rotation_arc(Vec3::Y, -Vec3::X);
-
-            scene.data.portal_pairs[0].animate_both(
-                base_pos_a + offset_a,
-                rot_a,
-                base_pos_b + offset_b,
-                rot_b,
-            );
+            scene.data.portal_pairs[0].animate_both(base_pos_a, rot_a, base_pos_b, Quat::IDENTITY);
         }
 
         if scene.data.portal_pair_count > 1 {
@@ -534,6 +505,45 @@ fn animate_portals(model: &mut Model, time: f32) {
 
             scene.data.portal_pairs[1].animate_both(pos_a, rot_a, pos_b, rot_b);
         }
+    } else if model.current_scene == 6 {
+        let scene = &mut model.scenes[model.current_scene];
+
+        if scene.data.portal_pair_count > 0 {
+            let sign = (time % 2.0 - 1.0).signum();
+            let time = sign * (1.0 - time % 2.0) + 1.0;
+            let time = 3.0 * time * time - 2.0 * time * time * time;
+
+            let a = vec3(0.0, 1.0, 0.0);
+            let b = vec3(-2.0, 1.0, 0.0);
+            let c = vec3(-2.0, 1.0, 2.0);
+
+            let f3 = time * time;
+            let f1 = 1.0 - 2.0 * time + f3;
+            let f2 = 2.0 * time - 2.0 * f3;
+
+            let pos_a = f1 * a + f2 * b + f3 * c;
+            // let pos_b = vec3(-pos_a.x, pos_a.y, pos_a.z);
+
+            let f4 = -2.0 + 2.0 * time;
+            let f5 = 2.0 - 4.0 * time;
+            let f6 = 2.0 * time;
+
+            let vel_a = f4 * a + f5 * b + f6 * c;
+            // let vel_b = vec3(-vel_a.x, vel_a.y, vel_a.z);
+            let vel_a_norm = vel_a.normalize();
+            // let vel_b_norm = vel_b.normalize();
+
+            let rot_a = Quat::from_rotation_arc(Vec3::Y, vel_a_norm);
+            // let rot_b = Quat::from_rotation_arc(Vec3::Y, vel_b_norm);
+
+            // scene.data.portal_pairs[0].animate_both(pos_a, rot_a, pos_b, rot_b);
+            scene.data.portal_pairs[0].animate_both(
+                pos_a,
+                rot_a,
+                a,
+                Quat::from_rotation_arc(Vec3::Y, Vec3::X),
+            );
+        }
     }
 }
 
@@ -542,14 +552,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
     let queue = window.queue();
 
-    let camera_pos = [
-        model.camera.position.x,
-        model.camera.position.y,
-        model.camera.position.z,
-    ];
-
-    let camera_forward = model.camera.forward();
-    let camera_dir = [camera_forward.x, camera_forward.y, camera_forward.z];
+    let camera_pos = model.camera.position.to_array();
+    let camera_dir = model.camera.forward().to_array();
 
     // Update uniforms
     let (w, h) = window.inner_size_pixels();

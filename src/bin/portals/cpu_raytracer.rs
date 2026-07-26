@@ -2,7 +2,11 @@ use nannou::prelude::*;
 
 use crate::{
     Model,
-    scene::{Ellipse, Plane, Portal, SceneData},
+    scene::{
+        SceneData,
+        portal::Portal,
+        primitive::{Ellipse, Plane},
+    },
 };
 
 pub struct DebugRay {
@@ -13,13 +17,7 @@ pub struct RaySegment {
     pub start: Vec3,
     pub end: Vec3,
     pub color: [f32; 3],
-    // segment_type: RaySegmentType,
 }
-
-// enum RaySegmentType {
-//     Primary,
-//     ThroughPortal,
-// }
 
 struct HitInfoCpu {
     hit: bool,
@@ -40,8 +38,8 @@ pub fn shoot_debug_ray(model: &mut Model) {
     let mut debug_rays = vec![];
 
     let m = 0.2;
-    let res_x = 3;
-    let res_y = 3;
+    let res_x = 8;
+    let res_y = 8;
 
     for x in 0..res_x {
         for y in 0..res_y {
@@ -84,7 +82,6 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
                 } else {
                     [0.0, 1.0, 1.0]
                 },
-                // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
             });
             break;
         }
@@ -118,7 +115,6 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
                             } else {
                                 [0.0, 1.0, 1.0]
                             },
-                            // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
                         });
 
                         let transformed_point =
@@ -151,7 +147,6 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
                 } else {
                     [0.0, 1.0, 1.0]
                 },
-                // segment_type: if bounce == 0 { RaySegmentType::Primary } else { RaySegmentType::ThroughPortal },
             });
             break;
         }
