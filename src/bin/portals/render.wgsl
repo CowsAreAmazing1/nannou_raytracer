@@ -369,7 +369,7 @@ fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
             if checker_pattern < 0.5 {
                 hit_info.color = plane.color;
             } else {
-                hit_info.color = plane.color - vec3<f32>(0.25, 0.25, 0.25);
+                hit_info.color = plane.color * 0.5; //  - vec3<f32>(0.25, 0.25, 0.25);
             }
         }
     }

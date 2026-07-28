@@ -1,4 +1,5 @@
 use nannou::prelude::*;
+use nannou_egui::{Egui, egui};
 
 use crate::{
     camera::Camera,
@@ -11,6 +12,7 @@ mod camera;
 mod cpu_raytracer;
 mod gpu;
 mod scene;
+mod ui;
 
 fn main() {
     nannou::app(model).update(update).run();
@@ -23,9 +25,10 @@ struct Model {
     scenes: Vec<Scene>,
     camera: Camera,
     mouse_locked: bool,
-    last_mouse_pos: Option<Vec2>,
 
     debug_rays: Vec<DebugRay>,
+
+    ui: Egui,
 }
 
 impl Model {
@@ -50,6 +53,7 @@ fn model(app: &App) -> Model {
         .key_pressed(key_pressed)
         .mouse_pressed(mouse_pressed)
         .mouse_moved(mouse_moved)
+        .raw_event(raw_event)
         .build()
         .unwrap();
 
@@ -60,6 +64,15 @@ fn model(app: &App) -> Model {
 
     let state = GpuState::new(device);
 
+    let ui = Egui::from_window(&window);
+    let ctx = ui.ctx();
+    let input = egui::RawInput::default();
+    let _ = ctx.run(input, |ctx| {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.label("Hello egui!");
+        });
+    });
+
     Model {
         window_id,
         state,
@@ -67,13 +80,14 @@ fn model(app: &App) -> Model {
         scenes,
         camera: Camera::new(),
         mouse_locked: false,
-        last_mouse_pos: None,
 
         debug_rays: Vec::new(),
+
+        ui,
     }
 }
 
-fn key_pressed(_app: &App, model: &mut Model, key: Key) {
+fn key_pressed(app: &App, model: &mut Model, key: Key) {
     match key {
         Key::Right => {
             if model.current_scene + 1 < model.scenes.len() {
@@ -86,8 +100,12 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
             }
         }
         Key::Tab => {
+            // If mouse_locked is true, show cursor is false
+            app.window(model.window_id)
+                .unwrap()
+                .set_cursor_visible(model.mouse_locked);
+
             model.mouse_locked = !model.mouse_locked;
-            model.last_mouse_pos = None;
             println!(
                 "Mouse lock: {}",
                 if model.mouse_locked { "ON" } else { "OFF" }
@@ -104,9 +122,8 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) {
 }
 
 fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) {
-    if !model.mouse_locked {
-        model.mouse_locked = true;
-        model.last_mouse_pos = None;
+    if model.mouse_locked {
+        // model.mouse_locked = true;
 
         let window = app.window(model.window_id).unwrap();
         let _ = window.set_cursor_grab(true);
@@ -116,28 +133,35 @@ fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) {
     }
 }
 
-fn mouse_moved(_app: &App, model: &mut Model, pos: Point2) {
+fn mouse_moved(app: &App, model: &mut Model, pos: Point2) {
     if model.mouse_locked {
         // Update camera immediately when mouse moves
-        if let Some(last_pos) = model.last_mouse_pos {
-            let mouse_delta = vec2(pos.x, pos.y) - last_pos;
-            model.camera.yaw += mouse_delta.x * model.camera.sensitivity;
-            model.camera.pitch += mouse_delta.y * model.camera.sensitivity;
+        // `pos` is mouse position relative to the center of the screen. (documented where?)
+        // This is exactly how much the mouse has moved since the previous frame,
+        // as it was reset to the center then
 
-            model.camera.pitch = model.camera.pitch.clamp(-PI / 2.0 + 0.1, PI / 2.0 - 0.1);
-        }
-        model.last_mouse_pos = Some(vec2(pos.x, pos.y));
+        let window = app.window(model.window_id).unwrap();
+        let res = window.rect().wh() * 0.5;
+
+        model.camera.yaw += pos.x * model.camera.sensitivity;
+        model.camera.pitch += pos.y * model.camera.sensitivity;
+
+        window.set_cursor_position_points(res.x, res.y).unwrap();
     }
 }
 
+fn raw_event(_app: &App, model: &mut Model, event: &nannou::winit::event::WindowEvent) {
+    model.ui.handle_raw_event(event);
+}
+
 fn update(app: &App, model: &mut Model, update: Update) {
+    model.update_ui();
+
     let dt = update.since_last.as_secs_f32();
 
     let old_position = model.camera.position;
 
-    // Only handle WASD movement in update_camera
     let mut movement = Vec3::ZERO;
-
     if app.keys.down.contains(&Key::W) {
         movement += model.camera.forward();
     }
@@ -156,6 +180,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
     if app.keys.down.contains(&Key::LShift) {
         movement -= model.camera.up();
     }
+
     if app.keys.down.contains(&Key::Equals) {
         model.camera.fov_multiplier = (model.camera.fov_multiplier + 0.01).min(3.0);
         println!("FOV: {:.2}", model.camera.fov_multiplier);
@@ -284,6 +309,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     let draw = app.draw();
     model.draw_debug_ray(&draw, screen_size);
+
+    model.ui.draw_to_frame(&frame).unwrap();
 
     draw.to_frame(app, &frame).unwrap();
 }
