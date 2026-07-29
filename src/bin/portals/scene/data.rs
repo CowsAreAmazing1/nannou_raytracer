@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use nannou::glam::{Quat, Vec3, vec3};
 
@@ -24,18 +24,18 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_plane(Plane::new(
             Vec3::ZERO,
-            Quat::from_rotation_x(0.01),
+            Quat::from_rotation_z(0.01),
             (0.086275, 0.5098, 0.17255),
         ));
 
         scene.add_plane(Plane::new(
             Vec3::ZERO,
-            Quat::from_rotation_x(-0.01),
+            Quat::from_rotation_z(-0.01),
             (0.4902, 0.035294, 0.19216),
         ));
 
         scene.add_ellipse(Ellipse::new(
-            vec3(-1.0, 1.7, -4.0),
+            vec3(-1.5, 1.7, -4.0),
             quat_to(Vec3::Z),
             e_a,
             e_b,
@@ -45,7 +45,7 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
 
         scene.add_ellipse(Ellipse::new(
-            vec3(1.0, 1.7, -4.1),
+            vec3(1.5, 1.7, -4.0),
             quat_to(Vec3::Z),
             e_a,
             e_b,
@@ -182,14 +182,14 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_plane(Plane::new(
             [0.0, -2.0, 0.0],
-            Quat::from_rotation_z(0.5 * PI),
+            Quat::IDENTITY,
             (0.2, 0.2, 0.2),
         ));
 
         scene.add_plane(Plane::new_finite(
             // Red right
             [0.6, 0.0 + 1.0, 0.0 - 5.0],
-            Quat::from_rotation_z(PI),
+            Quat::from_rotation_z(FRAC_PI_2),
             (0.2, 0.0, 0.0),
             3.0,
             3.0,
@@ -205,7 +205,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Red left
             [-0.6, 0.0 + 1.0, 0.0 - 5.0],
-            Quat::IDENTITY,
+            Quat::from_rotation_z(FRAC_PI_2),
             (0.0, 0.6, 0.5),
             3.0,
             3.0,

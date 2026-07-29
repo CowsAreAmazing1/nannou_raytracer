@@ -50,7 +50,6 @@ impl Scene {
 
     pub fn add_ellipse(&mut self, ellipse: Ellipse) {
         if self.data.ellipse_count < MAX_ELLIPSES as u32 {
-            println!("ellipses length {}", self.data.ellipses.len());
             self.data.ellipses.push(ellipse);
             self.data.ellipse_count += 1;
         } else {

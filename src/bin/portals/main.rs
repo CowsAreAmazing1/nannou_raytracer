@@ -216,7 +216,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
 }
 
 fn animate_portals(model: &mut Model, time: f32) {
-    if model.current_scene == 5 {
+    if model.current_scene == 4 {
         let scene = &mut model.scenes[model.current_scene];
 
         if scene.data.portal_pair_count > 0 {
@@ -248,7 +248,7 @@ fn animate_portals(model: &mut Model, time: f32) {
 
             scene.data.portal_pairs[1].animate_both(pos_a, rot_a, pos_b, rot_b);
         }
-    } else if model.current_scene == 6 {
+    } else if model.current_scene == 5 {
         let scene = &mut model.scenes[model.current_scene];
 
         if scene.data.portal_pair_count > 0 {

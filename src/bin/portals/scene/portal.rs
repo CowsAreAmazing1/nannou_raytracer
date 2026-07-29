@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use nannou::{
     color::{Srgb, WHITE},
-    glam::{Mat4, Quat, Vec3},
+    glam::{Mat3, Mat4, Quat, Vec3},
 };
 
 use crate::scene::primitive::ellipse::{Ellipse, EllipseRaw};
@@ -73,6 +73,20 @@ impl Portal {
         self.transformation_matrix = transform;
         self.inverse_transformation_matrix = transform.inverse();
     }
+
+    // NOT convinced by either of these. GAH
+    // fn apply_flip(&mut self) {
+    //     let rotation = Mat3::from_quat(self.ellipse.quat);
+    //     let y_to_neg_y = Mat3::from_cols(Vec3::X, -Vec3::Y, Vec3::Z);
+    //     let flipped_rotation = Mat4::from_mat3(rotation * y_to_neg_y);
+
+    //     let translation = Mat4::from_translation(self.position());
+
+    //     let flipped_transform = translation * flipped_rotation;
+
+    //     self.transformation_matrix = flipped_transform;
+    //     self.inverse_transformation_matrix = flipped_transform.inverse();
+    // }
 
     fn apply_flip(&mut self) {
         let flip_matrix = Mat4::from_rotation_z(std::f32::consts::PI);
