@@ -6,7 +6,10 @@ use bytemuck::{Pod, Zeroable};
 
 use crate::scene::{
     portal::PortalPair,
-    primitive::{Ellipse, Plane, PlaneRaw},
+    primitive::{
+        ellipse::Ellipse,
+        plane::{Plane, PlaneRaw},
+    },
 };
 
 const MAX_PLANES: usize = 10;

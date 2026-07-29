@@ -5,7 +5,7 @@ use nannou::glam::{Quat, Vec3, vec3};
 use crate::scene::{
     Scene,
     portal::{Portal, PortalPair},
-    primitive::{Ellipse, Plane},
+    primitive::{ellipse::Ellipse, plane::Plane},
 };
 
 pub fn create_scenes() -> Vec<Scene> {

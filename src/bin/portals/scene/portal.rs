@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use nannou::glam::{Mat4, Quat, Vec3};
 
-use crate::scene::primitive::Ellipse;
+use crate::scene::primitive::ellipse::Ellipse;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]

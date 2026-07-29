@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use nannou::glam::Quat;
 use nannou_egui::egui::{self, Slider, Ui};
 
-use crate::{Model, camera::Camera, scene::primitive::Plane};
+use crate::{Model, camera::Camera, scene::primitive::plane::Plane};
 
 impl Camera {
     fn add_ui(&mut self, ui: &mut Ui) {

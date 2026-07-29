@@ -5,7 +5,7 @@ use crate::{
     scene::{
         SceneData,
         portal::Portal,
-        primitive::{Ellipse, Plane},
+        primitive::{ellipse::Ellipse, plane::Plane},
     },
 };
 
