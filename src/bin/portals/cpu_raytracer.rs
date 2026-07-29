@@ -1,7 +1,7 @@
 use nannou::prelude::*;
 
 use crate::{
-    Camera, Model,
+    Camera, Model, WORLD_UP,
     scene::{
         SceneData,
         portal::Portal,
@@ -32,8 +32,7 @@ impl Model {
         let camera = &self.camera;
 
         let camera_forward = camera.forward();
-        let world_up = Vec3::Y;
-        let camera_right = camera_forward.cross(world_up).normalize();
+        let camera_right = camera_forward.cross(WORLD_UP).normalize();
         let camera_up = camera_right.cross(camera_forward);
 
         let mut debug_rays = vec![];
@@ -254,7 +253,7 @@ fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> Hi
             hit_info.hit = true;
             hit_info.t = t;
             hit_info.point = ray_origin + t * ray_direction;
-            hit_info.normal = (plane.quat * Vec3::Y).normalize();
+            hit_info.normal = plane.normal();
             hit_info.color = plane.color.into_components().into();
         }
     }
@@ -277,7 +276,7 @@ fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> Hi
 
 fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) -> f32 {
     let plane_point = plane.point;
-    let plane_normal = (plane.quat * Vec3::Y).normalize();
+    let plane_normal = plane.normal();
 
     let denom = plane_normal.dot(ray_direction);
     if denom.abs() < 1e-6 {
@@ -292,8 +291,8 @@ fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) 
         let local_point = hit_point - plane_point;
         // Add finite plane intersection logic here
 
-        let u_axis = if plane_normal.dot(Vec3::Y).abs() < 0.9 {
-            plane_normal.cross(Vec3::Y).normalize()
+        let u_axis = if plane_normal.dot(WORLD_UP).abs() < 0.9 {
+            plane_normal.cross(WORLD_UP).normalize()
         } else {
             plane_normal.cross(Vec3::X).normalize()
         };
@@ -327,9 +326,8 @@ fn ray_ellipse_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, ellipse: Ell
     let hit_point = ray_origin + t * ray_direction;
     let local_point = hit_point - center;
 
-    let up = Vec3::Y;
-    let u_axis = if normal.dot(up).abs() < 0.9 {
-        normal.cross(up).normalize()
+    let u_axis = if normal.dot(WORLD_UP).abs() < 0.9 {
+        normal.cross(WORLD_UP).normalize()
     } else {
         normal.cross(Vec3::X).normalize()
     };

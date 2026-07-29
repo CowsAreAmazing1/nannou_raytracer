@@ -2,6 +2,8 @@ use std::f32::consts::PI;
 
 use nannou::glam::{Vec2, Vec3, vec2, vec3};
 
+use crate::WORLD_UP;
+
 pub struct Camera {
     pub position: Vec3,
     pub yaw: f32,
@@ -40,13 +42,12 @@ impl Camera {
     }
 
     pub fn up(&self) -> Vec3 {
-        Vec3::Y
+        Vec3::Y // eventually `up` will include camera roll
     }
 
     fn shader_camera_right(&self) -> Vec3 {
         let camera_forward = self.forward();
-        let world_up = Vec3::Y;
-        camera_forward.cross(world_up).normalize()
+        camera_forward.cross(WORLD_UP).normalize()
     }
 
     fn shader_camera_up(&self) -> Vec3 {

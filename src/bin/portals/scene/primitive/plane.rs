@@ -4,6 +4,8 @@ use nannou::{
     glam::{Quat, Vec3},
 };
 
+use crate::WORLD_UP;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Plane {
     pub point: Vec3,
@@ -55,6 +57,10 @@ impl Plane {
             is_infinite: false,
         }
     }
+
+    pub fn normal(&self) -> Vec3 {
+        (self.quat * WORLD_UP).normalize()
+    }
 }
 
 #[repr(C)]
@@ -77,7 +83,7 @@ impl From<Plane> for PlaneRaw {
         Self {
             point: plane.point.to_array(),
             _padding1: 0.0,
-            normal: (plane.quat * Vec3::Y).to_array(),
+            normal: plane.normal().to_array(),
             _padding2: 0.0,
             color: plane.color.into_components().into(),
             _padding3: 0.0,

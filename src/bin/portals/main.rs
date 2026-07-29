@@ -14,6 +14,8 @@ mod gpu;
 mod scene;
 mod ui;
 
+pub const WORLD_UP: Vec3 = Vec3::Y;
+
 fn main() {
     nannou::app(model).update(update).run();
 }
@@ -223,9 +225,9 @@ fn animate_portals(model: &mut Model, time: f32) {
             let base_pos_b = scene.data.portal_pairs[0].portal_b.position();
 
             let rot_a = Quat::from_rotation_y((time * 0.2).sin())
-                * Quat::from_rotation_arc(Vec3::Y, Vec3::X);
+                * Quat::from_rotation_arc(WORLD_UP, Vec3::X);
             // let rot_b = Quat::from_rotation_y((-time * 0.3).sin())
-            // * Quat::from_rotation_arc(Vec3::Y, -Vec3::X);
+            // * Quat::from_rotation_arc(WORLD_UP, -Vec3::X);
 
             scene.data.portal_pairs[0].animate_both(base_pos_a, rot_a, base_pos_b, Quat::IDENTITY);
         }
@@ -241,7 +243,7 @@ fn animate_portals(model: &mut Model, time: f32) {
             );
 
             let rot_a =
-                Quat::from_rotation_y(rotation_speed) * Quat::from_rotation_arc(Vec3::Y, Vec3::Z);
+                Quat::from_rotation_y(rotation_speed) * Quat::from_rotation_arc(WORLD_UP, Vec3::Z);
             let rot_b = Quat::from_rotation_y(-rotation_speed * 0.7)
                 * Quat::from_rotation_z(PI / 2.0)
                 * Quat::from_rotation_y(-PI / 2.0);
@@ -276,15 +278,15 @@ fn animate_portals(model: &mut Model, time: f32) {
             let vel_a_norm = vel_a.normalize();
             // let vel_b_norm = vel_b.normalize();
 
-            let rot_a = Quat::from_rotation_arc(Vec3::Y, vel_a_norm);
-            // let rot_b = Quat::from_rotation_arc(Vec3::Y, vel_b_norm);
+            let rot_a = Quat::from_rotation_arc(WORLD_UP, vel_a_norm);
+            // let rot_b = Quat::from_rotation_arc(WORLD_UP, vel_b_norm);
 
             // scene.data.portal_pairs[0].animate_both(pos_a, rot_a, pos_b, rot_b);
             scene.data.portal_pairs[0].animate_both(
                 pos_a,
                 rot_a,
                 a,
-                Quat::from_rotation_arc(Vec3::Y, Vec3::X),
+                Quat::from_rotation_arc(WORLD_UP, Vec3::X),
             );
         }
     }
