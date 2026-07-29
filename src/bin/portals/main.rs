@@ -6,6 +6,7 @@ use crate::{
     cpu_raytracer::{DebugRay, check_camera_portal_teleport},
     gpu::{GpuState, Uniform},
     scene::Scene,
+    util::quat_to,
 };
 
 mod camera;
@@ -13,8 +14,7 @@ mod cpu_raytracer;
 mod gpu;
 mod scene;
 mod ui;
-
-pub const WORLD_UP: Vec3 = Vec3::Y;
+mod util;
 
 fn main() {
     nannou::app(model).update(update).run();
@@ -224,10 +224,9 @@ fn animate_portals(model: &mut Model, time: f32) {
             let base_pos_a = scene.data.portal_pairs[0].portal_a.position();
             let base_pos_b = scene.data.portal_pairs[0].portal_b.position();
 
-            let rot_a = Quat::from_rotation_y((time * 0.2).sin())
-                * Quat::from_rotation_arc(WORLD_UP, Vec3::X);
+            let rot_a = Quat::from_rotation_y((time * 0.2).sin()) * quat_to(Vec3::X);
             // let rot_b = Quat::from_rotation_y((-time * 0.3).sin())
-            // * Quat::from_rotation_arc(WORLD_UP, -Vec3::X);
+            // * quat_to(-Vec3::X);
 
             scene.data.portal_pairs[0].animate_both(base_pos_a, rot_a, base_pos_b, Quat::IDENTITY);
         }
@@ -242,8 +241,7 @@ fn animate_portals(model: &mut Model, time: f32) {
                 -1.0 + (rotation_speed * 1.5).sin() * 0.4,
             );
 
-            let rot_a =
-                Quat::from_rotation_y(rotation_speed) * Quat::from_rotation_arc(WORLD_UP, Vec3::Z);
+            let rot_a = Quat::from_rotation_y(rotation_speed) * quat_to(Vec3::Z);
             let rot_b = Quat::from_rotation_y(-rotation_speed * 0.7)
                 * Quat::from_rotation_z(PI / 2.0)
                 * Quat::from_rotation_y(-PI / 2.0);
@@ -278,16 +276,11 @@ fn animate_portals(model: &mut Model, time: f32) {
             let vel_a_norm = vel_a.normalize();
             // let vel_b_norm = vel_b.normalize();
 
-            let rot_a = Quat::from_rotation_arc(WORLD_UP, vel_a_norm);
-            // let rot_b = Quat::from_rotation_arc(WORLD_UP, vel_b_norm);
+            let rot_a = quat_to(vel_a_norm);
+            // let rot_b = quat_to(vel_b_norm);
 
             // scene.data.portal_pairs[0].animate_both(pos_a, rot_a, pos_b, rot_b);
-            scene.data.portal_pairs[0].animate_both(
-                pos_a,
-                rot_a,
-                a,
-                Quat::from_rotation_arc(WORLD_UP, Vec3::X),
-            );
+            scene.data.portal_pairs[0].animate_both(pos_a, rot_a, a, quat_to(Vec3::X));
         }
     }
 }

@@ -1,12 +1,13 @@
 use nannou::prelude::*;
 
 use crate::{
-    Camera, Model, WORLD_UP,
+    Camera, Model,
     scene::{
         SceneData,
         portal::Portal,
         primitive::{ellipse::Ellipse, plane::Plane},
     },
+    util::WORLD_UP,
 };
 
 pub struct DebugRay {

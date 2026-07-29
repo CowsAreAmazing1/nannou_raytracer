@@ -39,22 +39,25 @@ impl Plane {
         });
 
         let (mut a, mut b, mut c) = self.quat.to_euler(nannou::glam::EulerRot::XYZ);
+        a /= PI;
+        b /= PI;
+        c /= PI;
 
         ui.collapsing("Normal", |ui| {
             ui.horizontal(|ui| {
                 ui.label("a");
-                ui.add(Slider::new(&mut a, -PI..=PI));
+                ui.add(Slider::new(&mut a, -1.0..=1.0));
             });
             ui.horizontal(|ui| {
                 ui.label("b");
-                ui.add(Slider::new(&mut b, -PI..=PI));
+                ui.add(Slider::new(&mut b, -1.0..=1.0));
             });
             ui.horizontal(|ui| {
                 ui.label("c");
-                ui.add(Slider::new(&mut c, -PI..=PI));
+                ui.add(Slider::new(&mut c, -1.0..=1.0));
             });
 
-            self.quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, a, b, c);
+            self.quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, PI * a, PI * b, PI * c);
         });
     }
 }

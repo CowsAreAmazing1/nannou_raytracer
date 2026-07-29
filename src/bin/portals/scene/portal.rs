@@ -1,7 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use nannou::glam::{Mat4, Quat, Vec3};
 
-use crate::{WORLD_UP, scene::primitive::ellipse::Ellipse};
+use crate::{
+    scene::primitive::ellipse::Ellipse,
+    util::{WORLD_UP, quat_to},
+};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -56,8 +59,7 @@ impl Portal {
 
     fn transform_from_self(&mut self) {
         let position = Vec3::from(self.ellipse.center);
-        let rotation =
-            Quat::from_rotation_arc(WORLD_UP, Vec3::from(self.ellipse.normal).normalize());
+        let rotation = quat_to(Vec3::from(self.ellipse.normal).normalize());
 
         let transform = Mat4::from_rotation_translation(rotation, position);
 
@@ -102,7 +104,7 @@ impl Portal {
 
     fn get_rotation(&self) -> Quat {
         let current_normal = Vec3::from(self.ellipse.normal);
-        Quat::from_rotation_arc(WORLD_UP, current_normal)
+        quat_to(current_normal)
     }
 
     pub fn position(&self) -> Vec3 {

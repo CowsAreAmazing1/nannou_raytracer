@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use nannou::glam::{Vec2, Vec3, vec2, vec3};
 
-use crate::WORLD_UP;
+use crate::util::WORLD_UP;
 
 pub struct Camera {
     pub position: Vec3,

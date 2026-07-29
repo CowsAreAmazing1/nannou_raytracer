@@ -4,7 +4,7 @@ use nannou::{
     glam::{Quat, Vec3},
 };
 
-use crate::WORLD_UP;
+use crate::util::WORLD_UP;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Plane {

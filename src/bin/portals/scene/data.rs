@@ -3,12 +3,12 @@ use std::f32::consts::PI;
 use nannou::glam::{Quat, Vec3, vec3};
 
 use crate::{
-    WORLD_UP,
     scene::{
         Scene,
         portal::{Portal, PortalPair},
         primitive::{ellipse::Ellipse, plane::Plane},
     },
+    util::quat_to,
 };
 
 pub fn create_scenes() -> Vec<Scene> {
@@ -134,7 +134,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Red right
             (-0.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0),
-            Quat::IDENTITY, // [-1.0, 0.0, 0.0],
+            quat_to(-Vec3::X),
             (0.2, 0.0, 0.0),
             3.0,
             3.0,
@@ -142,7 +142,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Red back
             (-2.0 - 1.5, 0.0 + 1.0, -1.5 - 5.0),
-            Quat::IDENTITY, // [0.0, 0.0, 1.0],
+            quat_to(Vec3::Z),
             (0.3, 0.0, 0.0),
             3.0,
             3.0,
@@ -150,7 +150,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Red left
             (-3.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0),
-            Quat::IDENTITY, // [1.0, 0.0, 0.0],
+            quat_to(Vec3::X),
             (0.4, 0.0, 0.0),
             3.0,
             3.0,
@@ -158,7 +158,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Red bottom
             (-2.0 - 1.5, -1.5 + 1.0, 0.0 - 5.0),
-            Quat::IDENTITY, // [0.0, 1.0, 0.0],
+            quat_to(Vec3::Y),
             (0.5, 0.0, 0.0),
             3.0,
             3.0,
@@ -166,7 +166,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Red top
             (-2.0 - 1.5, 1.5 + 1.0, 0.0 - 5.0),
-            Quat::IDENTITY, // [0.0, -1.0, 0.0],
+            quat_to(-Vec3::Y),
             (0.6, 0.0, 0.0),
             3.0,
             3.0,
@@ -175,7 +175,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Blue right
             (0.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
-            Quat::IDENTITY, // [-1.0, 0.0, 0.0],
+            quat_to(-Vec3::X),
             (0.0, 0.0, 0.2),
             3.0,
             3.0,
@@ -183,7 +183,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Blue back
             (2.0 + 1.5, 0.0 + 1.0, -1.5 - 5.0),
-            Quat::IDENTITY, // [0.0, 0.0, 1.0],
+            quat_to(Vec3::Z),
             (0.0, 0.0, 0.3),
             3.0,
             3.0,
@@ -191,7 +191,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Blue left
             (3.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
-            Quat::IDENTITY, // [1.0, 0.0, 0.0],
+            quat_to(Vec3::X),
             (0.0, 0.0, 0.4),
             3.0,
             3.0,
@@ -199,7 +199,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Blue bottom
             (2.0 + 1.5, -1.5 + 1.0, 0.0 - 5.0),
-            Quat::IDENTITY, // [0.0, 1.0, 0.0],
+            quat_to(Vec3::Y),
             (0.0, 0.0, 0.5),
             3.0,
             3.0,
@@ -207,7 +207,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Blue top
             (2.0 + 1.5, 1.5 + 1.0, 0.0 - 5.0),
-            Quat::IDENTITY, // [0.0, -1.0, 0.0],
+            quat_to(-Vec3::Y),
             (0.0, 0.0, 0.6),
             3.0,
             3.0,
@@ -216,13 +216,13 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_portal_pair(PortalPair::new(
             Portal::new(
                 Vec3::new(-0.51 - 1.5, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(WORLD_UP, -Vec3::X),
+                quat_to(-Vec3::X),
                 e_a,
                 e_b,
             ),
             Portal::new(
                 Vec3::new(0.51 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(WORLD_UP, Vec3::X),
+                quat_to(Vec3::X),
                 e_a,
                 e_b,
             ),
@@ -252,7 +252,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_plane(Plane::new_finite(
             // Red back
             [0.0, 0.0 + 1.0, -1.5 - 5.0],
-            Quat::from_rotation_arc(WORLD_UP, Vec3::Z),
+            quat_to(Vec3::Z),
             (0.8, 0.8, 0.8),
             1.2,
             3.0,
@@ -285,13 +285,13 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_portal_pair(PortalPair::new(
             Portal::new(
                 Vec3::new(-0.55, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(WORLD_UP, Vec3::X),
+                quat_to(Vec3::X),
                 0.6,
                 1.0,
             ),
             Portal::new(
                 Vec3::new(0.55, 0.0 + 1.0, 0.0 - 5.0),
-                Quat::from_rotation_arc(WORLD_UP, -Vec3::X) * Quat::from_rotation_x(0.0),
+                quat_to(-Vec3::X) * Quat::from_rotation_x(0.0),
                 0.6,
                 1.0,
             ),
@@ -299,7 +299,7 @@ pub fn create_scenes() -> Vec<Scene> {
         // scene.add_portal_pair(PortalPair::new(
         //     Portal::new(
         //         Vec3::new(0.0, 0.0 + 1.0, -1.3 - 5.0),
-        //         Quat::from_rotation_arc(WORLD_UP, Vec3::Z),
+        //         quat_to(Vec3::Z),
         //         1.0,
         //         1.0,
         //     ),
@@ -336,18 +336,11 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_portal_pair(PortalPair::new(
             Portal::new(
                 vec3(0.0, 1.0, 0.5),
-                Quat::from_rotation_arc(WORLD_UP, -Vec3::Z)
-                    * Quat::from_rotation_y(PI)
-                    * Quat::from_rotation_z(0.1),
+                quat_to(-Vec3::Z) * Quat::from_rotation_y(PI) * Quat::from_rotation_z(0.1),
                 0.7,
                 0.9,
             ),
-            Portal::new(
-                vec3(0.0, 1.0, -0.5),
-                Quat::from_rotation_arc(WORLD_UP, Vec3::Z),
-                0.7,
-                0.9,
-            ),
+            Portal::new(vec3(0.0, 1.0, -0.5), quat_to(Vec3::Z), 0.7, 0.9),
         ));
 
         scenes.push(scene);
@@ -375,18 +368,11 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_portal_pair(PortalPair::new(
             Portal::new(
                 vec3(0.0, 1.0, 0.5),
-                Quat::from_rotation_arc(WORLD_UP, -Vec3::Z)
-                    * Quat::from_rotation_y(PI)
-                    * Quat::from_rotation_z(0.1),
+                quat_to(-Vec3::Z) * Quat::from_rotation_y(PI) * Quat::from_rotation_z(0.1),
                 0.7,
                 0.9,
             ),
-            Portal::new(
-                vec3(0.0, 1.0, -0.5),
-                Quat::from_rotation_arc(WORLD_UP, Vec3::Z),
-                0.7,
-                0.9,
-            ),
+            Portal::new(vec3(0.0, 1.0, -0.5), quat_to(Vec3::Z), 0.7, 0.9),
         ));
 
         scenes.push(scene);
