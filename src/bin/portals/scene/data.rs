@@ -28,23 +28,23 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
 
         scene.add_ellipse(Ellipse::new(
-            [1.5, 1.0, -4.0],
-            [0.0, -0.5, 1.0],
+            vec3(1.5, 1.0, -4.0),
+            Quat::from_rotation_x(0.6 * PI),
             e_a,
             e_b,
             rim_thickness,
-            [0.7, 0.4, 0.0],
-            [0.0, 0.0, 0.0],
+            (0.7, 0.4, 0.0),
+            (0.0, 0.0, 0.0),
         ));
 
         scene.add_ellipse(Ellipse::new(
-            [-1.5, 1.0, -4.0],
-            [0.0, -0.5, 1.0],
+            vec3(-1.5, 1.0, -4.0),
+            Quat::from_rotation_x(0.6 * PI),
             e_a,
             e_b,
             rim_thickness,
-            [0.0, 0.4, 0.7],
-            [0.0, 0.0, 0.0],
+            (0.0, 0.4, 0.7),
+            (0.0, 0.0, 0.0),
         ));
 
         scenes.push(scene);
@@ -74,23 +74,23 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
 
         scene.add_ellipse(Ellipse::new(
-            [-1.0, 1.7, -4.0],
-            [0.0, 0.0, 1.0],
+            vec3(-1.0, 1.7, -4.0),
+            quat_to(Vec3::Z),
             e_a,
             e_b,
             rim_thickness,
-            [0.7, 0.4, 0.0],
-            [0.0, 0.0, 0.0],
+            (0.7, 0.4, 0.0),
+            (0.0, 0.0, 0.0),
         ));
 
         scene.add_ellipse(Ellipse::new(
-            [1.0, 1.7, -4.1],
-            [0.0, 0.0, -1.0],
+            vec3(1.0, 1.7, -4.1),
+            quat_to(-Vec3::Z),
             e_a,
             e_b,
             rim_thickness,
-            [0.0, 0.4, 0.7],
-            [0.0, 0.0, 0.0],
+            (0.0, 0.4, 0.7),
+            (0.0, 0.0, 0.0),
         ));
 
         scenes.push(scene);

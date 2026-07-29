@@ -1,23 +1,78 @@
 use bytemuck::{Pod, Zeroable};
+use nannou::{
+    color::Srgb,
+    glam::{Quat, Vec3},
+};
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy)]
 pub struct Ellipse {
-    pub center: [f32; 3],
-    _padding1: f32,
-    pub normal: [f32; 3],
-    _padding2: f32,
-    pub radius_a: f32,
-    pub radius_b: f32,
-    pub border_thickness: f32,
-    _padding3: f32,
-    pub color: [f32; 3],
-    _padding4: f32,
-    pub border_color: [f32; 3],
-    _padding5: f32,
+    pub center: Vec3,
+    pub quat: Quat,
+    pub(crate) radius_a: f32,
+    pub(crate) radius_b: f32,
+    border_thickness: f32,
+    pub color: Srgb,
+    border_color: Srgb,
 }
 
 impl Default for Ellipse {
+    fn default() -> Self {
+        Self {
+            center: Vec3::ZERO,
+            quat: Quat::IDENTITY,
+            radius_a: 0.0,
+            radius_b: 1.0,
+            border_thickness: 0.1,
+            color: Srgb::default(),
+            border_color: Srgb::default(),
+        }
+    }
+}
+
+impl Ellipse {
+    pub fn new<P: Into<Vec3>, C: Into<Srgb>>(
+        center: P,
+        quat: Quat,
+        radius_a: f32,
+        radius_b: f32,
+        border_thickness: f32,
+        color: C,
+        border_color: C,
+    ) -> Self {
+        Self {
+            center: center.into(),
+            quat,
+            radius_a,
+            radius_b,
+            border_thickness,
+            color: color.into(),
+            border_color: border_color.into(),
+        }
+    }
+
+    pub fn normal(&self) -> Vec3 {
+        (self.quat * Vec3::Y).normalize()
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+pub struct EllipseRaw {
+    pub(crate) center: [f32; 3],
+    _padding1: f32,
+    pub(crate) normal: [f32; 3],
+    _padding2: f32,
+    radius_a: f32,
+    radius_b: f32,
+    border_thickness: f32,
+    _padding3: f32,
+    color: [f32; 3],
+    _padding4: f32,
+    border_color: [f32; 3],
+    _padding5: f32,
+}
+
+impl Default for EllipseRaw {
     fn default() -> Self {
         Self {
             center: [0.0; 3],
@@ -36,28 +91,20 @@ impl Default for Ellipse {
     }
 }
 
-impl Ellipse {
-    pub fn new(
-        center: [f32; 3],
-        normal: [f32; 3],
-        radius_a: f32,
-        radius_b: f32,
-        border_thickness: f32,
-        color: [f32; 3],
-        border_color: [f32; 3],
-    ) -> Self {
+impl From<Ellipse> for EllipseRaw {
+    fn from(value: Ellipse) -> Self {
         Self {
-            center,
+            center: value.center.to_array(),
             _padding1: 0.0,
-            normal,
+            normal: (value.quat * Vec3::Y).normalize().to_array(),
             _padding2: 0.0,
-            radius_a,
-            radius_b,
-            border_thickness,
+            radius_a: value.radius_a,
+            radius_b: value.radius_b,
+            border_thickness: value.border_thickness,
             _padding3: 0.0,
-            color,
+            color: value.color.into_components().into(),
             _padding4: 0.0,
-            border_color,
+            border_color: value.border_color.into_components().into(),
             _padding5: 0.0,
         }
     }

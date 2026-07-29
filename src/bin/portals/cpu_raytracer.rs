@@ -183,7 +183,7 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
                 );
 
                 if portal_t > 0.001 && portal_t <= hit_info.t + 0.001 {
-                    let portal_normal = Vec3::from(in_portal.ellipse.normal);
+                    let portal_normal = in_portal.normal();
 
                     if current_ray_direction.dot(portal_normal) < 0.0 {
                         let portal_hit_point =
@@ -267,8 +267,8 @@ fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> Hi
             hit_info.hit = true;
             hit_info.t = t;
             hit_info.point = ray_origin + t * ray_direction;
-            hit_info.normal = Vec3::from(ellipse.normal);
-            hit_info.color = ellipse.color;
+            hit_info.normal = ellipse.normal();
+            hit_info.color = ellipse.color.into_components().into();
         }
     }
 
@@ -311,8 +311,8 @@ fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) 
 }
 
 fn ray_ellipse_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, ellipse: Ellipse) -> f32 {
-    let center = Vec3::from(ellipse.center);
-    let normal = Vec3::from(ellipse.normal);
+    let center = ellipse.center;
+    let normal = ellipse.normal();
 
     let denom = normal.dot(ray_direction);
     if denom.abs() < 1e-6 {
@@ -400,7 +400,7 @@ fn check_single_portal_teleport(
     let t = ray_ellipse_intersect_cpu(ray_origin, ray_direction, ellipse);
 
     if t > 0.001 && t < max_distance {
-        let portal_normal = Vec3::from(ellipse.normal);
+        let portal_normal = ellipse.normal();
         if ray_direction.dot(portal_normal) < 0.0 {
             let hit_point = ray_origin + t * ray_direction;
             let remaining_distance = max_distance - t;
@@ -418,8 +418,8 @@ fn check_single_portal_teleport(
 }
 
 fn transform_point_through_portal(point: Vec3, in_portal: &Portal, out_portal: &Portal) -> Vec3 {
-    let in_transform = Mat4::from_cols_array(&in_portal.inverse_transformation_matrix);
-    let out_transform = Mat4::from_cols_array(&out_portal.transformation_matrix);
+    let in_transform = in_portal.inverse_transformation_matrix;
+    let out_transform = out_portal.transformation_matrix;
 
     let local_point = in_transform.transform_point3(point);
     out_transform.transform_point3(local_point)
@@ -430,8 +430,8 @@ fn transform_direction_through_portal(
     in_portal: &Portal,
     out_portal: &Portal,
 ) -> Vec3 {
-    let in_transform = Mat4::from_cols_array(&in_portal.inverse_transformation_matrix);
-    let out_transform = Mat4::from_cols_array(&out_portal.transformation_matrix);
+    let in_transform = in_portal.inverse_transformation_matrix;
+    let out_transform = out_portal.transformation_matrix;
 
     let local_direction = in_transform.transform_vector3(direction);
     out_transform.transform_vector3(local_direction).normalize()

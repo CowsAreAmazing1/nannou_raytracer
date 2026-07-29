@@ -66,33 +66,16 @@ impl Plane {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 pub struct PlaneRaw {
-    pub point: [f32; 3],
+    point: [f32; 3],
     _padding1: f32,
-    pub normal: [f32; 3],
+    normal: [f32; 3],
     _padding2: f32,
-    pub color: [f32; 3],
+    color: [f32; 3],
     _padding3: f32,
-    pub width: f32,
-    pub height: f32,
-    pub is_infinite: f32, // 1.0 for infinite, 0.0 for finite
+    width: f32,
+    height: f32,
+    is_infinite: f32, // 1.0 for infinite, 0.0 for finite
     _padding4: f32,
-}
-
-impl From<Plane> for PlaneRaw {
-    fn from(plane: Plane) -> Self {
-        Self {
-            point: plane.point.to_array(),
-            _padding1: 0.0,
-            normal: plane.normal().to_array(),
-            _padding2: 0.0,
-            color: plane.color.into_components().into(),
-            _padding3: 0.0,
-            width: plane.width,
-            height: plane.height,
-            is_infinite: if plane.is_infinite { 1.0 } else { 0.01 },
-            _padding4: 0.0,
-        }
-    }
 }
 
 impl Default for PlaneRaw {
@@ -107,6 +90,23 @@ impl Default for PlaneRaw {
             width: 1.0,
             height: 1.0,
             is_infinite: 1.0,
+            _padding4: 0.0,
+        }
+    }
+}
+
+impl From<Plane> for PlaneRaw {
+    fn from(plane: Plane) -> Self {
+        Self {
+            point: plane.point.to_array(),
+            _padding1: 0.0,
+            normal: plane.normal().to_array(),
+            _padding2: 0.0,
+            color: plane.color.into_components().into(),
+            _padding3: 0.0,
+            width: plane.width,
+            height: plane.height,
+            is_infinite: if plane.is_infinite { 1.0 } else { 0.0 },
             _padding4: 0.0,
         }
     }

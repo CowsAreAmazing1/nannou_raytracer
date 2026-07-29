@@ -5,9 +5,9 @@ pub mod primitive;
 use bytemuck::{Pod, Zeroable};
 
 use crate::scene::{
-    portal::PortalPair,
+    portal::{PortalPair, PortalPairRaw},
     primitive::{
-        ellipse::Ellipse,
+        ellipse::{Ellipse, EllipseRaw},
         plane::{Plane, PlaneRaw},
     },
 };
@@ -69,8 +69,8 @@ impl Scene {
 
     pub fn to_raw(&self) -> SceneDataRaw {
         let mut planes = [PlaneRaw::default(); MAX_PLANES];
-        let mut ellipses = [Ellipse::default(); MAX_ELLIPSES];
-        let mut portal_pairs = [PortalPair::default(); MAX_PORTAL_PAIRS];
+        let mut ellipses = [EllipseRaw::default(); MAX_ELLIPSES];
+        let mut portal_pairs = [PortalPairRaw::default(); MAX_PORTAL_PAIRS];
 
         for (i, plane) in self.data.planes.iter().enumerate() {
             if i < MAX_PLANES {
@@ -79,12 +79,12 @@ impl Scene {
         }
         for (i, ellipse) in self.data.ellipses.iter().enumerate() {
             if i < MAX_ELLIPSES {
-                ellipses[i] = *ellipse;
+                ellipses[i] = (*ellipse).into();
             }
         }
         for (i, portal_pair) in self.data.portal_pairs.iter().enumerate() {
             if i < MAX_PORTAL_PAIRS {
-                portal_pairs[i] = *portal_pair;
+                portal_pairs[i] = (*portal_pair).into();
             }
         }
 
@@ -108,6 +108,6 @@ pub struct SceneDataRaw {
     pub portal_pair_count: u32,
     _padding1: u32,
     pub planes: [PlaneRaw; MAX_PLANES],
-    pub ellipses: [Ellipse; MAX_ELLIPSES],
-    pub portal_pairs: [PortalPair; MAX_PORTAL_PAIRS],
+    pub ellipses: [EllipseRaw; MAX_ELLIPSES],
+    pub portal_pairs: [PortalPairRaw; MAX_PORTAL_PAIRS],
 }
