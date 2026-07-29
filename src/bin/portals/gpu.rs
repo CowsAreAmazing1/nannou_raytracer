@@ -4,7 +4,7 @@ use nannou::{
     wgpu::{self, Device, Queue},
 };
 
-use crate::{Camera, scene::SceneData};
+use crate::{Camera, scene::SceneDataRaw};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -56,7 +56,7 @@ impl GpuState {
 
         let scene_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Scene Buffer"),
-            size: std::mem::size_of::<SceneData>() as u64,
+            size: std::mem::size_of::<SceneDataRaw>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -159,7 +159,7 @@ impl GpuState {
         queue.write_buffer(&self.uniform_buffer, 0, cast_slice(&[uniform]));
     }
 
-    pub fn write_scene_data<S: NoUninit>(&self, queue: &Queue, scene_data: S) {
+    pub fn write_scene_data(&self, queue: &Queue, scene_data: SceneDataRaw) {
         queue.write_buffer(&self.scene_buffer, 0, cast_slice(&[scene_data]));
     }
 

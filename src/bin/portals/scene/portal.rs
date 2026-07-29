@@ -84,11 +84,13 @@ impl Portal {
         self.inverse_transformation_matrix = flipped_transform.inverse().to_cols_array();
     }
 
+    #[allow(dead_code)]
     pub fn set_position(&mut self, position: Vec3) {
         let current_rotation = self.get_rotation();
         self.update_transform(position, current_rotation);
     }
 
+    #[allow(dead_code)]
     pub fn set_rotation(&mut self, rotation: Quat) {
         let current_position = Vec3::from(self.ellipse.center);
         self.update_transform(current_position, rotation);
@@ -126,11 +128,13 @@ impl PortalPair {
         }
     }
 
+    #[allow(dead_code)]
     pub fn animate_portal_a(&mut self, position: Vec3, rotation: Quat) {
         self.portal_a.animate(position, rotation);
         self.portal_a.apply_flip();
     }
 
+    #[allow(dead_code)]
     pub fn animate_portal_b(&mut self, position: Vec3, rotation: Quat) {
         self.portal_b.animate(position, rotation);
     }

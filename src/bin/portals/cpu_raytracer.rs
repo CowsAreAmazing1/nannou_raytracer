@@ -254,8 +254,8 @@ fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> Hi
             hit_info.hit = true;
             hit_info.t = t;
             hit_info.point = ray_origin + t * ray_direction;
-            hit_info.normal = Vec3::from(plane.normal);
-            hit_info.color = plane.color;
+            hit_info.normal = (plane.quat * Vec3::Y).normalize();
+            hit_info.color = plane.color.into_components().into();
         }
     }
 
@@ -276,8 +276,8 @@ fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> Hi
 }
 
 fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) -> f32 {
-    let plane_point = Vec3::from(plane.point);
-    let plane_normal = Vec3::from(plane.normal);
+    let plane_point = plane.point;
+    let plane_normal = (plane.quat * Vec3::Y).normalize();
 
     let denom = plane_normal.dot(ray_direction);
     if denom.abs() < 1e-6 {
@@ -287,7 +287,7 @@ fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) 
     let t = (plane_point - ray_origin).dot(plane_normal) / denom;
 
     // Check finite plane bounds if needed
-    if plane.is_infinite < 0.5 {
+    if !plane.is_infinite {
         let hit_point = ray_origin + t * ray_direction;
         let local_point = hit_point - plane_point;
         // Add finite plane intersection logic here

@@ -1,8 +1,65 @@
 use bytemuck::{Pod, Zeroable};
+use nannou::{
+    color::Srgb,
+    glam::{Quat, Vec3},
+};
+
+#[derive(Debug, Clone, Copy)]
+pub struct Plane {
+    pub point: Vec3,
+    pub quat: Quat,
+    pub color: Srgb,
+    pub width: f32,
+    pub height: f32,
+    pub is_infinite: bool,
+}
+
+impl Default for Plane {
+    fn default() -> Self {
+        Self {
+            point: Vec3::ZERO,
+            quat: Quat::IDENTITY,
+            color: Srgb::default(),
+            width: 1.0,
+            height: 1.0,
+            is_infinite: true,
+        }
+    }
+}
+
+impl Plane {
+    pub fn new<P: Into<Vec3>, C: Into<Srgb>>(point: P, quat: Quat, color: C) -> Self {
+        Self {
+            point: point.into(),
+            quat,
+            color: color.into(),
+            width: 0.0,
+            height: 0.0,
+            is_infinite: true,
+        }
+    }
+
+    pub fn new_finite<P: Into<Vec3>, C: Into<Srgb>>(
+        point: P,
+        quat: Quat,
+        color: C,
+        width: f32,
+        height: f32,
+    ) -> Self {
+        Self {
+            point: point.into(),
+            quat,
+            color: color.into(),
+            width,
+            height,
+            is_infinite: false,
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
-pub struct Plane {
+pub struct PlaneRaw {
     pub point: [f32; 3],
     _padding1: f32,
     pub normal: [f32; 3],
@@ -15,7 +72,24 @@ pub struct Plane {
     _padding4: f32,
 }
 
-impl Default for Plane {
+impl From<Plane> for PlaneRaw {
+    fn from(plane: Plane) -> Self {
+        Self {
+            point: plane.point.to_array(),
+            _padding1: 0.0,
+            normal: (plane.quat * Vec3::Y).to_array(),
+            _padding2: 0.0,
+            color: plane.color.into_components().into(),
+            _padding3: 0.0,
+            width: plane.width,
+            height: plane.height,
+            is_infinite: if plane.is_infinite { 1.0 } else { 0.01 },
+            _padding4: 0.0,
+        }
+    }
+}
+
+impl Default for PlaneRaw {
     fn default() -> Self {
         Self {
             point: [0.0; 3],
@@ -27,44 +101,6 @@ impl Default for Plane {
             width: 1.0,
             height: 1.0,
             is_infinite: 1.0,
-            _padding4: 0.0,
-        }
-    }
-}
-
-impl Plane {
-    pub fn new(point: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
-        Self {
-            point,
-            _padding1: 0.0,
-            normal,
-            _padding2: 0.0,
-            color,
-            _padding3: 0.0,
-            width: 0.0,
-            height: 0.0,
-            is_infinite: 1.0,
-            _padding4: 0.0,
-        }
-    }
-
-    pub fn new_finite(
-        point: [f32; 3],
-        normal: [f32; 3],
-        color: [f32; 3],
-        width: f32,
-        height: f32,
-    ) -> Self {
-        Self {
-            point,
-            _padding1: 0.0,
-            normal,
-            _padding2: 0.0,
-            color,
-            _padding3: 0.0,
-            width,
-            height,
-            is_infinite: 0.0, // Mark as finite
             _padding4: 0.0,
         }
     }

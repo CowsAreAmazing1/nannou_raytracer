@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use nannou::glam::{Quat, Vec3};
+use nannou::glam::Quat;
 use nannou_egui::egui::{self, Slider, Ui};
 
 use crate::{Model, camera::Camera, scene::primitive::Plane};
@@ -23,30 +23,24 @@ impl Camera {
 
 impl Plane {
     fn add_ui(&mut self, ui: &mut Ui) {
-        let labels = ["x".to_string(), "y".to_string(), "z".to_string()];
-
         ui.collapsing("Point", |ui| {
-            for (label, p) in labels.iter().zip(self.point.iter_mut()) {
-                ui.horizontal(|ui| {
-                    ui.label(label);
-                    ui.add(Slider::new(p, -10.0..=10.0).text(label));
-                });
-            }
+            ui.horizontal(|ui| {
+                ui.label("x");
+                ui.add(Slider::new(&mut self.point.x, -10.0..=10.0));
+            });
+            ui.horizontal(|ui| {
+                ui.label("y");
+                ui.add(Slider::new(&mut self.point.y, -10.0..=10.0));
+            });
+            ui.horizontal(|ui| {
+                ui.label("z");
+                ui.add(Slider::new(&mut self.point.z, -10.0..=10.0));
+            });
         });
+
+        let (mut a, mut b, mut c) = self.quat.to_euler(nannou::glam::EulerRot::XYZ);
+
         ui.collapsing("Normal", |ui| {
-            // // TODO: hard to keep the normal vec normalized. Idealy use fancy 3D rotation
-            // for (label, n) in labels.iter().zip(self.normal.iter_mut()) {
-            //     ui.horizontal(|ui| {
-            //         ui.label(label);
-            //         ui.add(Slider::new(n, -10.0..=10.0).text(label));
-            //     });
-            // }
-
-            // Use a quaternion maybe?
-            let mut a = 0.0;
-            let mut b = 0.0;
-            let mut c = 0.0;
-
             ui.horizontal(|ui| {
                 ui.label("a");
                 ui.add(Slider::new(&mut a, -PI..=PI));
@@ -60,8 +54,7 @@ impl Plane {
                 ui.add(Slider::new(&mut c, -PI..=PI));
             });
 
-            let quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, a, b, c);
-            self.normal = (quat * Vec3::Y).to_array();
+            self.quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, a, b, c);
         });
     }
 }

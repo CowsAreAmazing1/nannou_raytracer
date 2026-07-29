@@ -299,11 +299,12 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let (w, h) = window.inner_size_points();
     let screen_size = vec2(w, h);
 
-    let scene_data = model.scenes[model.current_scene].data;
+    let scene_data = &model.scenes[model.current_scene];
+    let raw_data = Scene::to_raw(scene_data);
 
     let uniform = Uniform::build(w, h, app.time, model.current_scene, &model.camera);
     model.state.write_uniform(queue, uniform);
-    model.state.write_scene_data(queue, scene_data);
+    model.state.write_scene_data(queue, raw_data);
 
     model.state.render(device, queue, &frame);
 

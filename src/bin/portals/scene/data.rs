@@ -19,9 +19,9 @@ pub fn create_scenes() -> Vec<Scene> {
         let mut scene = Scene::new("Ellipse Showcase");
 
         scene.add_plane(Plane::new(
-            [0.0, -2.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.2, 0.0, 0.0],
+            vec3(0.0, -2.0, 0.0),
+            Quat::IDENTITY,
+            (0.2, 0.0, 0.0),
         ));
 
         scene.add_ellipse(Ellipse::new(
@@ -50,28 +50,24 @@ pub fn create_scenes() -> Vec<Scene> {
     {
         let mut scene = Scene::new("Single Portal Pair Setup");
 
+        scene.add_plane(Plane::new((0.1, 0.0, 0.1), Quat::IDENTITY, (0.5, 0.0, 0.0)));
+
         scene.add_plane(Plane::new(
-            [0.1, 0.0, 0.1],
-            [-0.1, 1.0, -0.1],
-            [0.5, 0.0, 0.0],
+            (-0.1, 0.0, 0.1),
+            Quat::IDENTITY,
+            (0.35, 0.35, 0.0),
         ));
 
         scene.add_plane(Plane::new(
-            [-0.1, 0.0, 0.1],
-            [0.1, 1.0, -0.1],
-            [0.35, 0.35, 0.0],
+            (0.1, 0.0, -0.1),
+            Quat::IDENTITY,
+            (0.0, 0.5, 0.0),
         ));
 
         scene.add_plane(Plane::new(
-            [0.1, 0.0, -0.1],
-            [-0.1, 1.0, 0.1],
-            [0.0, 0.5, 0.0],
-        ));
-
-        scene.add_plane(Plane::new(
-            [-0.1, 0.0, -0.1],
-            [0.1, 1.0, 0.1],
-            [0.0, 0.2, 0.5],
+            (-0.1, 0.0, -0.1),
+            Quat::IDENTITY,
+            (0.0, 0.2, 0.5),
         ));
 
         scene.add_ellipse(Ellipse::new(
@@ -100,28 +96,24 @@ pub fn create_scenes() -> Vec<Scene> {
     {
         let mut scene = Scene::new("Single Portal Pair");
 
+        scene.add_plane(Plane::new((0.1, 0.0, 0.1), Quat::IDENTITY, (0.5, 0.0, 0.0)));
+
         scene.add_plane(Plane::new(
-            [0.1, 0.0, 0.1],
-            [-0.1, 1.0, -0.1],
-            [0.5, 0.0, 0.0],
+            (-0.1, 0.0, 0.1),
+            Quat::IDENTITY,
+            (0.35, 0.35, 0.0),
         ));
 
         scene.add_plane(Plane::new(
-            [-0.1, 0.0, 0.1],
-            [0.1, 1.0, -0.1],
-            [0.35, 0.35, 0.0],
+            (0.1, 0.0, -0.1),
+            Quat::IDENTITY,
+            (0.0, 0.5, 0.0),
         ));
 
         scene.add_plane(Plane::new(
-            [0.1, 0.0, -0.1],
-            [-0.1, 1.0, 0.1],
-            [0.0, 0.5, 0.0],
-        ));
-
-        scene.add_plane(Plane::new(
-            [-0.1, 0.0, -0.1],
-            [0.1, 1.0, 0.1],
-            [0.0, 0.2, 0.5],
+            (-0.1, 0.0, -0.1),
+            Quat::IDENTITY,
+            (0.0, 0.2, 0.5),
         ));
 
         scene.add_portal_pair(PortalPair::new(
@@ -138,82 +130,82 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_plane(Plane::new_finite(
             // Red right
-            [-0.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0],
-            [-1.0, 0.0, 0.0],
-            [0.2, 0.0, 0.0],
+            (-0.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0),
+            Quat::IDENTITY, // [-1.0, 0.0, 0.0],
+            (0.2, 0.0, 0.0),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Red back
-            [-2.0 - 1.5, 0.0 + 1.0, -1.5 - 5.0],
-            [0.0, 0.0, 1.0],
-            [0.3, 0.0, 0.0],
+            (-2.0 - 1.5, 0.0 + 1.0, -1.5 - 5.0),
+            Quat::IDENTITY, // [0.0, 0.0, 1.0],
+            (0.3, 0.0, 0.0),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Red left
-            [-3.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0],
-            [1.0, 0.0, 0.0],
-            [0.4, 0.0, 0.0],
+            (-3.5 - 1.5, 0.0 + 1.0, 0.0 - 5.0),
+            Quat::IDENTITY, // [1.0, 0.0, 0.0],
+            (0.4, 0.0, 0.0),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Red bottom
-            [-2.0 - 1.5, -1.5 + 1.0, 0.0 - 5.0],
-            [0.0, 1.0, 0.0],
-            [0.5, 0.0, 0.0],
+            (-2.0 - 1.5, -1.5 + 1.0, 0.0 - 5.0),
+            Quat::IDENTITY, // [0.0, 1.0, 0.0],
+            (0.5, 0.0, 0.0),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Red top
-            [-2.0 - 1.5, 1.5 + 1.0, 0.0 - 5.0],
-            [0.0, -1.0, 0.0],
-            [0.6, 0.0, 0.0],
+            (-2.0 - 1.5, 1.5 + 1.0, 0.0 - 5.0),
+            Quat::IDENTITY, // [0.0, -1.0, 0.0],
+            (0.6, 0.0, 0.0),
             3.0,
             3.0,
         ));
 
         scene.add_plane(Plane::new_finite(
             // Blue right
-            [0.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0],
-            [-1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.2],
+            (0.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
+            Quat::IDENTITY, // [-1.0, 0.0, 0.0],
+            (0.0, 0.0, 0.2),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Blue back
-            [2.0 + 1.5, 0.0 + 1.0, -1.5 - 5.0],
-            [0.0, 0.0, 1.0],
-            [0.0, 0.0, 0.3],
+            (2.0 + 1.5, 0.0 + 1.0, -1.5 - 5.0),
+            Quat::IDENTITY, // [0.0, 0.0, 1.0],
+            (0.0, 0.0, 0.3),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Blue left
-            [3.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.4],
+            (3.5 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
+            Quat::IDENTITY, // [1.0, 0.0, 0.0],
+            (0.0, 0.0, 0.4),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Blue bottom
-            [2.0 + 1.5, -1.5 + 1.0, 0.0 - 5.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.5],
+            (2.0 + 1.5, -1.5 + 1.0, 0.0 - 5.0),
+            Quat::IDENTITY, // [0.0, 1.0, 0.0],
+            (0.0, 0.0, 0.5),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Blue top
-            [2.0 + 1.5, 1.5 + 1.0, 0.0 - 5.0],
-            [0.0, -1.0, 0.0],
-            [0.0, 0.0, 0.6],
+            (2.0 + 1.5, 1.5 + 1.0, 0.0 - 5.0),
+            Quat::IDENTITY, // [0.0, -1.0, 0.0],
+            (0.0, 0.0, 0.6),
             3.0,
             3.0,
         ));
@@ -242,47 +234,47 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_plane(Plane::new(
             [0.0, -2.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.2, 0.2, 0.2],
+            Quat::from_rotation_z(0.5 * PI),
+            (0.2, 0.2, 0.2),
         ));
 
         scene.add_plane(Plane::new_finite(
             // Red right
             [0.6, 0.0 + 1.0, 0.0 - 5.0],
-            [-1.0, 0.0, 0.0],
-            [0.2, 0.0, 0.0],
+            Quat::from_rotation_z(PI),
+            (0.2, 0.0, 0.0),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Red back
             [0.0, 0.0 + 1.0, -1.5 - 5.0],
-            [0.0, 0.0, 1.0],
-            [0.8, 0.8, 0.8],
+            Quat::from_rotation_arc(Vec3::Y, Vec3::Z),
+            (0.8, 0.8, 0.8),
             1.2,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Red left
             [-0.6, 0.0 + 1.0, 0.0 - 5.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 0.6, 0.5],
+            Quat::IDENTITY,
+            (0.0, 0.6, 0.5),
             3.0,
             3.0,
         ));
         scene.add_plane(Plane::new_finite(
             // Red bottom
             [-0.0, -1.5 + 1.0, 0.0 - 5.0],
-            [0.0, 1.0, 0.0],
-            [0.8, 0.8, 0.8],
+            Quat::IDENTITY,
+            (0.8, 0.8, 0.8),
             3.0,
             1.2,
         ));
         scene.add_plane(Plane::new_finite(
             // Red top
             [-0.0, 1.5 + 1.0, 0.0 - 5.0],
-            [0.0, -1.0, 0.0],
-            [0.8, 0.8, 0.8],
+            Quat::IDENTITY,
+            (0.8, 0.8, 0.8),
             3.0,
             1.2,
         ));
@@ -324,16 +316,16 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_plane(Plane::new_finite(
             [0.0, 0.0, -1.25],
-            [0.0, 1.0, 0.0],
-            [0.4, 0.1, 0.4],
+            Quat::IDENTITY,
+            (0.4, 0.1, 0.4),
             2.5,
             5.0,
         ));
 
         scene.add_plane(Plane::new_finite(
             [0.0, 0.0, 1.25],
-            [0.0, 1.0, 0.0],
-            [0.1, 0.4, 0.4],
+            Quat::IDENTITY,
+            (0.1, 0.4, 0.4),
             2.5,
             5.0,
         ));
@@ -363,16 +355,16 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_plane(Plane::new_finite(
             [0.0, 0.0, -1.25],
-            [0.0, 1.0, 0.0],
-            [0.4, 0.1, 0.4],
+            Quat::IDENTITY,
+            (0.4, 0.1, 0.4),
             2.5,
             5.0,
         ));
 
         scene.add_plane(Plane::new_finite(
             [0.0, 0.0, 1.25],
-            [0.0, 1.0, 0.0],
-            [0.1, 0.4, 0.4],
+            Quat::IDENTITY,
+            (0.1, 0.4, 0.4),
             2.5,
             5.0,
         ));
