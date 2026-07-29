@@ -78,7 +78,7 @@ fn model(app: &App) -> Model {
     Model {
         window_id,
         state,
-        current_scene: 3,
+        current_scene: 1,
         scenes,
         camera: Camera::new(),
         mouse_locked: false,

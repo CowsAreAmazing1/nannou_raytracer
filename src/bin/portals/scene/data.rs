@@ -19,58 +19,19 @@ pub fn create_scenes() -> Vec<Scene> {
     let rim_thickness = 0.2;
 
     {
-        let mut scene = Scene::new("Ellipse Showcase");
+        // Scene 1: Simple primitive example
+        let mut scene = Scene::new("Ellipse Pair");
 
         scene.add_plane(Plane::new(
-            vec3(0.0, -2.0, 0.0),
-            Quat::IDENTITY,
-            (0.2, 0.0, 0.0),
-        ));
-
-        scene.add_ellipse(Ellipse::new(
-            vec3(1.5, 1.0, -4.0),
-            Quat::from_rotation_x(0.6 * PI),
-            e_a,
-            e_b,
-            rim_thickness,
-            (0.7, 0.4, 0.0),
-            (0.0, 0.0, 0.0),
-        ));
-
-        scene.add_ellipse(Ellipse::new(
-            vec3(-1.5, 1.0, -4.0),
-            Quat::from_rotation_x(0.6 * PI),
-            e_a,
-            e_b,
-            rim_thickness,
-            (0.0, 0.4, 0.7),
-            (0.0, 0.0, 0.0),
-        ));
-
-        scenes.push(scene);
-    }
-
-    {
-        let mut scene = Scene::new("Single Portal Pair Setup");
-
-        scene.add_plane(Plane::new((0.1, 0.0, 0.1), Quat::IDENTITY, (0.5, 0.0, 0.0)));
-
-        scene.add_plane(Plane::new(
-            (-0.1, 0.0, 0.1),
-            Quat::IDENTITY,
-            (0.35, 0.35, 0.0),
+            Vec3::ZERO,
+            Quat::from_rotation_x(0.01),
+            (0.086275, 0.5098, 0.17255),
         ));
 
         scene.add_plane(Plane::new(
-            (0.1, 0.0, -0.1),
-            Quat::IDENTITY,
-            (0.0, 0.5, 0.0),
-        ));
-
-        scene.add_plane(Plane::new(
-            (-0.1, 0.0, -0.1),
-            Quat::IDENTITY,
-            (0.0, 0.2, 0.5),
+            Vec3::ZERO,
+            Quat::from_rotation_x(-0.01),
+            (0.4902, 0.035294, 0.19216),
         ));
 
         scene.add_ellipse(Ellipse::new(
@@ -85,7 +46,7 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_ellipse(Ellipse::new(
             vec3(1.0, 1.7, -4.1),
-            quat_to(-Vec3::Z),
+            quat_to(Vec3::Z),
             e_a,
             e_b,
             rim_thickness,
@@ -97,38 +58,22 @@ pub fn create_scenes() -> Vec<Scene> {
     }
 
     {
+        // Scene 2: Same as 1 but with a pair of portals
         let mut scene = Scene::new("Single Portal Pair");
 
-        scene.add_plane(Plane::new((0.1, 0.0, 0.1), Quat::IDENTITY, (0.5, 0.0, 0.0)));
-
-        scene.add_plane(Plane::new(
-            (-0.1, 0.0, 0.1),
-            Quat::IDENTITY,
-            (0.35, 0.35, 0.0),
-        ));
-
-        scene.add_plane(Plane::new(
-            (0.1, 0.0, -0.1),
-            Quat::IDENTITY,
-            (0.0, 0.5, 0.0),
-        ));
-
-        scene.add_plane(Plane::new(
-            (-0.1, 0.0, -0.1),
-            Quat::IDENTITY,
-            (0.0, 0.2, 0.5),
-        ));
+        scene.add_plane(scenes[0].data.planes[0]);
+        scene.add_plane(scenes[0].data.planes[1]);
 
         scene.add_portal_pair(PortalPair::new(
-            Portal::from_ellipse(scenes[1].data.ellipses[0]),
-            Portal::from_ellipse(scenes[1].data.ellipses[1]),
+            Portal::from_ellipse(scenes[0].data.ellipses[0]),
+            Portal::from_ellipse(scenes[0].data.ellipses[1]),
         ));
 
         scenes.push(scene);
     }
 
     {
-        // Scene 4: Rooms
+        // Scene 3: Rooms
         let mut scene = Scene::new("Rooms");
 
         scene.add_plane(Plane::new_finite(
@@ -232,7 +177,7 @@ pub fn create_scenes() -> Vec<Scene> {
     }
 
     {
-        // Scene 5: Infinite Portal Room
+        // Scene 4: Infinite Portal Room
         let mut scene = Scene::new("Infinite Portal Room");
 
         scene.add_plane(Plane::new(

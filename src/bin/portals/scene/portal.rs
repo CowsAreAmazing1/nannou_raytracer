@@ -57,7 +57,7 @@ impl Portal {
         portal
     }
 
-    fn transform_from_self(&mut self) {
+    pub fn transform_from_self(&mut self) {
         let transform = Mat4::from_rotation_translation(self.ellipse.quat, self.ellipse.center);
 
         self.transformation_matrix = transform;
