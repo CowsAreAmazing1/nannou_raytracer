@@ -355,9 +355,9 @@ pub fn check_camera_portal_teleport(
     let movement_vec = new_pos - old_pos;
     let movement_length = movement_vec.length();
 
-    if movement_length < 0.001 {
-        return None;
-    }
+    // if movement_length < 0.001 {
+    //     return None;
+    // }
 
     let ray_direction = movement_vec / movement_length;
 
@@ -433,6 +433,12 @@ fn transform_direction_through_portal(
     let in_transform = in_portal.inverse_transformation_matrix;
     let out_transform = out_portal.transformation_matrix;
 
-    let local_direction = in_transform.transform_vector3(direction);
-    out_transform.transform_vector3(local_direction).normalize()
+    let base_direction = in_transform.transform_vector3(direction);
+
+    let base_perp = Vec3::X;
+    let flipped_base_direction = 2.0 * base_direction.dot(base_perp) * base_perp - base_direction;
+
+    out_transform
+        .transform_vector3(flipped_base_direction)
+        .normalize()
 }

@@ -5,9 +5,11 @@ struct Uniforms {
     time: f32,
     scene_id: u32,
     camera_pos: vec3<f32>,
-    _padding2: f32,
-    camera_dir: vec3<f32>,
     fov: f32,
+    camera_dir: vec3<f32>,
+    _padding: f32,
+    base_perp: vec3<f32>,
+    _padding2: f32,
 }
 
 struct Plane {
@@ -226,11 +228,16 @@ fn ray_portal_intersect(ray: Ray, portal: Portal) -> f32 {
 fn portal_ray(ray: Ray, hit_t: f32, in_portal: Portal, out_portal: Portal) -> Ray {
     let world_hit_point = ray.origin + hit_t * ray.direction;
 
-    let portal_hit_point = transform_point(world_hit_point, in_portal.inverse_transform_matrix);
-    let portal_direction = transform_direction(ray.direction, in_portal.inverse_transform_matrix);
+    let base_hit_point = transform_point(world_hit_point, in_portal.inverse_transform_matrix);
+    let base_direction = transform_direction(ray.direction, in_portal.inverse_transform_matrix);
 
-    let new_world_origin = transform_point(portal_hit_point, out_portal.transform_matrix);
-    let new_world_direction = transform_direction(portal_direction, out_portal.transform_matrix);
+    // let base_perp = vec3<f32>(1.0, 1.0, 0.0);
+    let base_perp = uniforms.base_perp;
+    let flipped_base_direction = 2.0 * dot(base_direction, base_perp) * base_perp - base_direction;
+    // let flipped_base_direction = base_direction;
+
+    let new_world_origin = transform_point(base_hit_point, out_portal.transform_matrix);
+    let new_world_direction = normalize(transform_direction(flipped_base_direction, out_portal.transform_matrix));
 
     return Ray(new_world_origin, new_world_direction);
 }

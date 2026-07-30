@@ -6,12 +6,18 @@ use nannou::{
 
 #[derive(Debug, Clone, Copy)]
 pub struct Ellipse {
+    /// Position of the center of the ellipse
     pub center: Vec3,
-    pub quat: Quat,
+    /// Rotation values either XYZ or Euler angles
+    pub rots: (f32, f32, f32),
+    /// Innder radius
     pub(crate) radius_a: f32,
+    /// Outer radius
     pub(crate) radius_b: f32,
     border_thickness: f32,
+    /// Inside color
     pub color: Srgb,
+    /// Outer color
     border_color: Srgb,
 }
 
@@ -19,7 +25,7 @@ impl Default for Ellipse {
     fn default() -> Self {
         Self {
             center: Vec3::ZERO,
-            quat: Quat::IDENTITY,
+            rots: (0.0, 0.0, 0.0),
             radius_a: 0.0,
             radius_b: 1.0,
             border_thickness: 0.1,
@@ -32,7 +38,7 @@ impl Default for Ellipse {
 impl Ellipse {
     pub fn new<P: Into<Vec3>, C: Into<Srgb>>(
         center: P,
-        quat: Quat,
+        rots: (f32, f32, f32),
         radius_a: f32,
         radius_b: f32,
         border_thickness: f32,
@@ -41,7 +47,7 @@ impl Ellipse {
     ) -> Self {
         Self {
             center: center.into(),
-            quat,
+            rots,
             radius_a,
             radius_b,
             border_thickness,
@@ -50,8 +56,14 @@ impl Ellipse {
         }
     }
 
+    pub fn quat(&self) -> Quat {
+        let (a, b, c) = self.rots;
+        Quat::from_euler(nannou::glam::EulerRot::XYZ, a, b, c)
+        // Quat::from_rotation_z(rots.2) *
+    }
+
     pub fn normal(&self) -> Vec3 {
-        (self.quat * Vec3::Y).normalize()
+        (self.quat() * Vec3::Y).normalize()
     }
 }
 
@@ -96,7 +108,7 @@ impl From<Ellipse> for EllipseRaw {
         Self {
             center: value.center.to_array(),
             _padding1: 0.0,
-            normal: (value.quat * Vec3::Y).normalize().to_array(),
+            normal: (value.quat() * Vec3::Y).normalize().to_array(),
             _padding2: 0.0,
             radius_a: value.radius_a,
             radius_b: value.radius_b,

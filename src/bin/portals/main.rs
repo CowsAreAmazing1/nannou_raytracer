@@ -1,3 +1,5 @@
+use std::f32::consts::FRAC_PI_2;
+
 use nannou::prelude::*;
 use nannou_egui::{Egui, egui};
 
@@ -224,11 +226,11 @@ fn animate_portals(model: &mut Model, time: f32) {
             let base_pos_a = scene.data.portal_pairs[0].portal_a.position();
             let base_pos_b = scene.data.portal_pairs[0].portal_b.position();
 
-            let rot_a = Quat::from_rotation_y((time * 0.2).sin()) * quat_to(Vec3::X);
+            let rot_a = (0.0, (time * 0.2).sin(), FRAC_PI_2);
             // let rot_b = Quat::from_rotation_y((-time * 0.3).sin())
             // * quat_to(-Vec3::X);
 
-            scene.data.portal_pairs[0].animate_both(base_pos_a, rot_a, base_pos_b, Quat::IDENTITY);
+            scene.data.portal_pairs[0].animate_both(base_pos_a, rot_a, base_pos_b, (0.0, 0.0, 0.0));
         }
 
         if scene.data.portal_pair_count > 1 {
@@ -241,10 +243,8 @@ fn animate_portals(model: &mut Model, time: f32) {
                 -1.0 + (rotation_speed * 1.5).sin() * 0.4,
             );
 
-            let rot_a = Quat::from_rotation_y(rotation_speed) * quat_to(Vec3::Z);
-            let rot_b = Quat::from_rotation_y(-rotation_speed * 0.7)
-                * Quat::from_rotation_z(PI / 2.0)
-                * Quat::from_rotation_y(-PI / 2.0);
+            let rot_a = (FRAC_PI_2, rotation_speed, 0.0);
+            let rot_b = (0.0, -rotation_speed * 0.7, FRAC_PI_2);
 
             scene.data.portal_pairs[1].animate_both(pos_a, rot_a, pos_b, rot_b);
         }
@@ -276,11 +276,11 @@ fn animate_portals(model: &mut Model, time: f32) {
             let vel_a_norm = vel_a.normalize();
             // let vel_b_norm = vel_b.normalize();
 
-            let rot_a = quat_to(vel_a_norm);
-            // let rot_b = quat_to(vel_b_norm);
+            let rot_a = quat_to(vel_a_norm).to_euler(nannou::glam::EulerRot::XYZ);
+            let rot_b = quat_to(Vec3::X).to_euler(nannou::glam::EulerRot::XYZ);
 
             // scene.data.portal_pairs[0].animate_both(pos_a, rot_a, pos_b, rot_b);
-            scene.data.portal_pairs[0].animate_both(pos_a, rot_a, a, quat_to(Vec3::X));
+            scene.data.portal_pairs[0].animate_both(pos_a, rot_a, a, rot_b);
         }
     }
 }
@@ -297,7 +297,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let scene_data = &model.scenes[model.current_scene];
     let raw_data = Scene::to_raw(scene_data);
 
-    let uniform = Uniform::build(w, h, app.time, model.current_scene, &model.camera);
+    let uniform = Uniform::build(w, h, app.time, model.current_scene, &model.camera, Vec3::X);
     model.state.write_uniform(queue, uniform);
     model.state.write_scene_data(queue, raw_data);
 

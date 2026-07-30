@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use nannou::{
     color::{Srgb, WHITE},
-    glam::{Mat3, Mat4, Quat, Vec3},
+    glam::{Mat4, Vec3},
 };
 
 use crate::scene::primitive::ellipse::{Ellipse, EllipseRaw};
@@ -24,7 +24,7 @@ impl Default for Portal {
 }
 
 impl Portal {
-    pub fn new(position: Vec3, rotation: Quat, radius_a: f32, radius_b: f32) -> Self {
+    pub fn new(position: Vec3, rotation: (f32, f32, f32), radius_a: f32, radius_b: f32) -> Self {
         let ellipse = Ellipse::new(
             position,
             rotation,
@@ -58,20 +58,17 @@ impl Portal {
     }
 
     pub fn transform_from_self(&mut self) {
-        let transform = Mat4::from_rotation_translation(self.ellipse.quat, self.ellipse.center);
+        let transform = Mat4::from_rotation_translation(self.ellipse.quat(), self.ellipse.center);
 
         self.transformation_matrix = transform;
         self.inverse_transformation_matrix = transform.inverse();
     }
 
-    fn update_transform(&mut self, position: Vec3, rotation: Quat) {
+    fn update_transform(&mut self, position: Vec3, rotation: (f32, f32, f32)) {
         self.ellipse.center = position;
-        self.ellipse.quat = rotation;
+        self.ellipse.rots = rotation;
 
-        let transform = Mat4::from_rotation_translation(rotation, position);
-
-        self.transformation_matrix = transform;
-        self.inverse_transformation_matrix = transform.inverse();
+        self.transform_from_self();
     }
 
     // NOT convinced by either of these. GAH
@@ -89,25 +86,14 @@ impl Portal {
     // }
 
     fn apply_flip(&mut self) {
-        let flip_matrix = Mat4::from_rotation_z(std::f32::consts::PI);
-        let flipped_transform = self.transformation_matrix * flip_matrix;
+        // let flip_matrix = Mat4::from_rotation_z(std::f32::consts::PI);
+        // let flipped_transform = self.transformation_matrix * flip_matrix;
 
-        self.transformation_matrix = flipped_transform;
-        self.inverse_transformation_matrix = flipped_transform.inverse();
+        // self.transformation_matrix = flipped_transform;
+        // self.inverse_transformation_matrix = flipped_transform.inverse();
     }
 
-    #[allow(dead_code)]
-    pub fn set_position(&mut self, position: Vec3) {
-        let current_rotation = self.ellipse.quat;
-        self.update_transform(position, current_rotation);
-    }
-
-    #[allow(dead_code)]
-    pub fn set_rotation(&mut self, rotation: Quat) {
-        self.update_transform(self.position(), rotation);
-    }
-
-    pub fn animate(&mut self, position: Vec3, rotation: Quat) {
+    pub fn animate(&mut self, position: Vec3, rotation: (f32, f32, f32)) {
         self.update_transform(position, rotation);
     }
 
@@ -156,27 +142,19 @@ pub struct PortalPair {
 
 impl PortalPair {
     pub fn new(portal_a: Portal, portal_b: Portal) -> Self {
-        let mut flipped_a = portal_a;
-        flipped_a.apply_flip(); // Always flip portal A
+        // let mut flipped_a = portal_a;
+        // flipped_a.apply_flip(); // Always flip portal A
 
-        Self {
-            portal_a: flipped_a,
-            portal_b,
-        }
+        Self { portal_a, portal_b }
     }
 
-    #[allow(dead_code)]
-    pub fn animate_portal_a(&mut self, position: Vec3, rotation: Quat) {
-        self.portal_a.animate(position, rotation);
-        self.portal_a.apply_flip();
-    }
-
-    #[allow(dead_code)]
-    pub fn animate_portal_b(&mut self, position: Vec3, rotation: Quat) {
-        self.portal_b.animate(position, rotation);
-    }
-
-    pub fn animate_both(&mut self, pos_a: Vec3, rot_a: Quat, pos_b: Vec3, rot_b: Quat) {
+    pub fn animate_both(
+        &mut self,
+        pos_a: Vec3,
+        rot_a: (f32, f32, f32),
+        pos_b: Vec3,
+        rot_b: (f32, f32, f32),
+    ) {
         self.portal_a.animate(pos_a, rot_a);
         self.portal_a.apply_flip();
 

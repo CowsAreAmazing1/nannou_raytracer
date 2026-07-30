@@ -86,7 +86,7 @@ impl Ellipse {
             });
         });
 
-        let (mut a, mut b, mut c) = self.quat.to_euler(nannou::glam::EulerRot::XYZ);
+        let (mut a, mut b, mut c) = self.rots;
         a /= PI;
         b /= PI;
         c /= PI;
@@ -105,51 +105,62 @@ impl Ellipse {
                 ui.add(Slider::new(&mut c, -1.0..=1.0));
             });
 
-            self.quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, PI * a, PI * b, PI * c);
+            self.rots = (PI * a, PI * b, PI * c);
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Radius a");
+            ui.add(Slider::new(&mut self.radius_a, 0.0..=1.0));
+        });
+        ui.horizontal(|ui| {
+            ui.label("Radius b");
+            ui.add(Slider::new(&mut self.radius_b, 0.0..=1.0));
         });
     }
 }
 
 impl Portal {
     fn add_ui(&mut self, ui: &mut Ui) {
-        ui.collapsing("Point", |ui| {
-            let position = &mut self.ellipse.center;
-            ui.horizontal(|ui| {
-                ui.label("x");
-                ui.add(Slider::new(&mut position.x, -10.0..=10.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("y");
-                ui.add(Slider::new(&mut position.y, -10.0..=10.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("z");
-                ui.add(Slider::new(&mut position.z, -10.0..=10.0));
-            });
-        });
+        // ui.collapsing("Point", |ui| {
+        //     let position = &mut self.ellipse.center;
+        //     ui.horizontal(|ui| {
+        //         ui.label("x");
+        //         ui.add(Slider::new(&mut position.x, -10.0..=10.0));
+        //     });
+        //     ui.horizontal(|ui| {
+        //         ui.label("y");
+        //         ui.add(Slider::new(&mut position.y, -10.0..=10.0));
+        //     });
+        //     ui.horizontal(|ui| {
+        //         ui.label("z");
+        //         ui.add(Slider::new(&mut position.z, -10.0..=10.0));
+        //     });
+        // });
 
-        let (mut a, mut b, mut c) = self.ellipse.quat.to_euler(nannou::glam::EulerRot::XYZ);
-        a /= PI;
-        b /= PI;
-        c /= PI;
+        // let (mut a, mut b, mut c) = self.ellipse.quat.to_euler(nannou::glam::EulerRot::XYZ);
+        // a /= PI;
+        // b /= PI;
+        // c /= PI;
 
-        ui.collapsing("Normal", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("a");
-                ui.add(Slider::new(&mut a, -1.0..=1.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("b");
-                ui.add(Slider::new(&mut b, -1.0..=1.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("c");
-                ui.add(Slider::new(&mut c, -1.0..=1.0));
-            });
+        // ui.collapsing("Normal", |ui| {
+        //     ui.horizontal(|ui| {
+        //         ui.label("a");
+        //         ui.add(Slider::new(&mut a, -1.0..=1.0));
+        //     });
+        //     ui.horizontal(|ui| {
+        //         ui.label("b");
+        //         ui.add(Slider::new(&mut b, -1.0..=1.0));
+        //     });
+        //     ui.horizontal(|ui| {
+        //         ui.label("c");
+        //         ui.add(Slider::new(&mut c, -1.0..=1.0));
+        //     });
 
-            self.ellipse.quat =
-                Quat::from_euler(nannou::glam::EulerRot::XYZ, PI * a, PI * b, PI * c);
-        });
+        //     self.ellipse.quat =
+        //         Quat::from_euler(nannou::glam::EulerRot::XYZ, PI * a, PI * b, PI * c);
+        // });
+
+        self.ellipse.add_ui(ui);
 
         self.transform_from_self();
     }
@@ -203,6 +214,59 @@ impl Model {
                     }
                 });
             });
+
+            // test portal transforms
+            if self.current_scene == 0 {
+                let portal_pair = self.scenes[0].data.portal_pairs[0];
+
+                // portal a
+                if ui
+                    .add(egui::Button::new("Apply portal A transform"))
+                    .clicked()
+                {
+                    let transform = portal_pair.portal_a.transformation_matrix;
+
+                    let planes = &mut self.scenes[0].data.planes;
+                    for plane in planes.iter_mut() {
+                        plane.point = transform.transform_point3(plane.point);
+                    }
+                }
+                if ui
+                    .add(egui::Button::new("Apply portal A untransform"))
+                    .clicked()
+                {
+                    let transform = portal_pair.portal_a.inverse_transformation_matrix;
+
+                    let planes = &mut self.scenes[0].data.planes;
+                    for plane in planes.iter_mut() {
+                        plane.point = transform.transform_point3(plane.point);
+                    }
+                }
+
+                // portal b
+                if ui
+                    .add(egui::Button::new("Apply portal B transform"))
+                    .clicked()
+                {
+                    let transform = portal_pair.portal_b.transformation_matrix;
+
+                    let planes = &mut self.scenes[0].data.planes;
+                    for plane in planes.iter_mut() {
+                        plane.point = transform.transform_point3(plane.point);
+                    }
+                }
+                if ui
+                    .add(egui::Button::new("Apply portal B untransform"))
+                    .clicked()
+                {
+                    let transform = portal_pair.portal_b.inverse_transformation_matrix;
+
+                    let planes = &mut self.scenes[0].data.planes;
+                    for plane in planes.iter_mut() {
+                        plane.point = transform.transform_point3(plane.point);
+                    }
+                }
+            }
         });
     }
 }
