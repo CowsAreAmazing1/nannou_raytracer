@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use nannou::{
     color::*,
@@ -9,7 +9,7 @@ use crate::{
     scene::{
         Scene,
         portal::{Portal, PortalPair},
-        primitive::{ellipse::Ellipse, plane::Plane},
+        primitive::{cube::Cube, ellipse::Ellipse, plane::Plane},
     },
     util::quat_to,
 };
@@ -24,20 +24,18 @@ pub fn create_scenes() -> Vec<Scene> {
     {
         let mut scene = Scene::new("test");
 
-        for axis in [Vec3::X, Vec3::Y, Vec3::Z].map(quat_to).iter() {
-            scene.add_plane(Plane::new_finite(
-                vec3(2.0, 1.0, 0.0),
-                *axis,
-                (0.086275, 0.5098, 0.17255),
-                1.0,
-                1.0,
-            ));
-        }
+        scene.add_cube(Cube::new(
+            vec3(2.0, 1.0, 1.0),
+            0.5,
+            (0.086275, 0.5098, 0.17255),
+        ));
+
+        scene.add_cube(Cube::new(Vec3::ZERO, 0.2, WHITE.into_format()));
 
         scene.add_portal_pair(PortalPair::new(
             Portal::from_ellipse(Ellipse::new(
                 vec3(2.0, 0.0, 0.0),
-                (0.0, 0.0, FRAC_PI_4),
+                (0.0, FRAC_PI_2, FRAC_PI_2),
                 0.6,
                 1.0,
                 0.1,
@@ -46,11 +44,11 @@ pub fn create_scenes() -> Vec<Scene> {
             )),
             Portal::from_ellipse(Ellipse::new(
                 vec3(-2.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
+                (0.0, PI, FRAC_PI_2),
                 0.6,
                 1.0,
                 0.1,
-                ORANGERED.into_format(),
+                BLUEVIOLET.into_format(),
                 BLACK.into_format(),
             )),
         ));

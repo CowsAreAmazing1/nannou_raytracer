@@ -33,6 +33,9 @@ struct Model {
     debug_rays: Vec<DebugRay>,
 
     ui: Egui,
+
+    bp_u: f32,
+    bp_v: f32,
 }
 
 impl Model {
@@ -88,6 +91,9 @@ fn model(app: &App) -> Model {
         debug_rays: Vec::new(),
 
         ui,
+
+        bp_u: 0.0,
+        bp_v: 0.0,
     }
 }
 
@@ -148,7 +154,8 @@ fn mouse_moved(app: &App, model: &mut Model, pos: Point2) {
         let res = window.rect().wh() * 0.5;
 
         model.camera.yaw += pos.x * model.camera.sensitivity;
-        model.camera.pitch += pos.y * model.camera.sensitivity;
+        model.camera.pitch = (model.camera.pitch + pos.y * model.camera.sensitivity)
+            .clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
 
         window.set_cursor_position_points(res.x, res.y).unwrap();
     }
@@ -297,7 +304,18 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let scene_data = &model.scenes[model.current_scene];
     let raw_data = Scene::to_raw(scene_data);
 
-    let uniform = Uniform::build(w, h, app.time, model.current_scene, &model.camera, Vec3::X);
+    let u = model.bp_u;
+    let v = model.bp_v;
+    let base_perp = vec3(u.sin() * v.cos(), u.sin() * v.sin(), u.cos());
+    let uniform = Uniform::build(
+        w,
+        h,
+        app.time,
+        model.current_scene,
+        &model.camera,
+        base_perp,
+    );
+
     model.state.write_uniform(queue, uniform);
     model.state.write_scene_data(queue, raw_data);
 

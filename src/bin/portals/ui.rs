@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use nannou::glam::Quat;
 use nannou_egui::egui::{self, Slider, Ui};
@@ -217,6 +217,9 @@ impl Model {
 
             // test portal transforms
             if self.current_scene == 0 {
+                let scene = &mut self.scenes[0].data;
+                scene.cubes[0].center = self.camera.position;
+
                 let portal_pair = self.scenes[0].data.portal_pairs[0];
 
                 // portal a
@@ -226,10 +229,8 @@ impl Model {
                 {
                     let transform = portal_pair.portal_a.transformation_matrix;
 
-                    let planes = &mut self.scenes[0].data.planes;
-                    for plane in planes.iter_mut() {
-                        plane.point = transform.transform_point3(plane.point);
-                    }
+                    let cube = &mut self.scenes[0].data.cubes[0];
+                    cube.center = transform.transform_point3(cube.center);
                 }
                 if ui
                     .add(egui::Button::new("Apply portal A untransform"))
@@ -237,10 +238,8 @@ impl Model {
                 {
                     let transform = portal_pair.portal_a.inverse_transformation_matrix;
 
-                    let planes = &mut self.scenes[0].data.planes;
-                    for plane in planes.iter_mut() {
-                        plane.point = transform.transform_point3(plane.point);
-                    }
+                    let cube = &mut self.scenes[0].data.cubes[0];
+                    cube.center = transform.transform_point3(cube.center);
                 }
 
                 // portal b
@@ -250,10 +249,8 @@ impl Model {
                 {
                     let transform = portal_pair.portal_b.transformation_matrix;
 
-                    let planes = &mut self.scenes[0].data.planes;
-                    for plane in planes.iter_mut() {
-                        plane.point = transform.transform_point3(plane.point);
-                    }
+                    let cube = &mut self.scenes[0].data.cubes[0];
+                    cube.center = transform.transform_point3(cube.center);
                 }
                 if ui
                     .add(egui::Button::new("Apply portal B untransform"))
@@ -261,12 +258,15 @@ impl Model {
                 {
                     let transform = portal_pair.portal_b.inverse_transformation_matrix;
 
-                    let planes = &mut self.scenes[0].data.planes;
-                    for plane in planes.iter_mut() {
-                        plane.point = transform.transform_point3(plane.point);
-                    }
+                    let cube = &mut self.scenes[0].data.cubes[0];
+                    cube.center = transform.transform_point3(cube.center);
                 }
             }
+
+            ui.separator();
+
+            ui.add(egui::Slider::new(&mut self.bp_u, -FRAC_PI_2..=FRAC_PI_2));
+            ui.add(egui::Slider::new(&mut self.bp_v, -PI..=PI));
         });
     }
 }
