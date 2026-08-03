@@ -8,7 +8,9 @@ use crate::{
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Cube {
+    /// Position of the center of the cube
     pub center: Vec3,
+    /// Edge length
     pub size: f32,
     pub color: Srgb,
 }
@@ -37,8 +39,8 @@ impl From<Cube> for CubeRaw {
             let axis = axes[i];
             let point = cube.center + axis * (0.5 * cube.size);
             let quat = quat_to(axis);
-            let color = cube.color;
-            Plane::new_finite(point, quat, color, cube.size, cube.size).into()
+
+            Plane::new_finite(point, quat, cube.color, cube.size, cube.size).into()
         });
 
         Self { planes }

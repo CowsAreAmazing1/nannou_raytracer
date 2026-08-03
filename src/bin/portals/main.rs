@@ -290,11 +290,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
     let queue = window.queue();
 
-    // Update uniforms
     let (w, h) = window.inner_size_pixels();
-    let scale_factor = window.scale_factor();
-    let screen_size = vec2(w as f32, h as f32) * scale_factor;
 
+    // Prepare the current scene for the GPU. This is probably pretty expensive
     let scene_data = &model.scenes[model.current_scene];
     let raw_data = Scene::to_raw(scene_data);
 
@@ -310,15 +308,20 @@ fn view(app: &App, model: &Model, frame: Frame) {
         base_perp,
     );
 
+    // Upload to the GPU
     model.state.write_uniform(queue, uniform);
     model.state.write_scene_data(queue, raw_data);
 
     model.state.render(device, queue, &frame);
 
+    // // Draw debug rays
     let draw = app.draw();
+
+    // Include the scale factor in the screen size
+    let screen_size = vec2(w as f32, h as f32) * window.scale_factor();
     model.draw_debug_ray(&draw, screen_size);
-
-    model.ui.draw_to_frame(&frame).unwrap();
-
     draw.to_frame(app, &frame).unwrap();
+
+    // Draw ui on top of everything else
+    model.ui.draw_to_frame(&frame).unwrap();
 }

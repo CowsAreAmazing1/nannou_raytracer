@@ -8,8 +8,11 @@ use crate::scene::primitive::ellipse::{Ellipse, EllipseRaw};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Portal {
+    /// The visible part of the portal. The teleporting surface is in the ellipse's normal direction.
     pub ellipse: Ellipse,
+    /// Transforms a point from the base portal to this portal
     pub transformation_matrix: Mat4,
+    /// Transforms a point from this portal to the base portal
     pub inverse_transformation_matrix: Mat4,
 }
 
@@ -41,7 +44,6 @@ impl Portal {
             inverse_transformation_matrix: Mat4::IDENTITY,
         };
 
-        // portal.update_transform(position, rotation);
         portal.transform_from_self();
         portal
     }
@@ -110,6 +112,7 @@ impl Portal {
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 pub struct PortalRaw {
     pub ellipse: EllipseRaw,
+    /// Matrices stored in collumn major order, for wgpu
     pub transformation_matrix: [f32; 16],
     pub inverse_transformation_matrix: [f32; 16],
 }
