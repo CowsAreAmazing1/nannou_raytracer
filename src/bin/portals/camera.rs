@@ -56,6 +56,9 @@ impl Camera {
         camera_right.cross(camera_forward)
     }
 
+    /// Performs 3D to 2D mapping of the world position of an object for the camera.
+    ///
+    /// `screen_size` must take the scale_factor into account. (??)
     fn world_to_screen_unbounded(&self, world_pos: Vec3, screen_size: Vec2) -> Option<Vec2> {
         // Transform to camera space
         let relative_pos = world_pos - self.position;
@@ -68,7 +71,7 @@ impl Camera {
         let forward_dist = relative_pos.dot(camera_forward);
 
         // Check if behind camera
-        if forward_dist <= 0.1 {
+        if forward_dist <= 0.01 {
             return None;
         }
 
@@ -81,19 +84,17 @@ impl Camera {
 
         // Convert to UV coordinates like the shader does
         let fov_radians = 2.0 * self.fov_multiplier.atan();
-        let uv_x = right_offset / forward_dist / fov_radians;
+        let uv_x = right_offset / forward_dist / fov_radians / aspect_ratio;
         let uv_y = up_offset / forward_dist / fov_radians;
 
-        // Apply aspect ratio correction like shader
-        let corrected_uv_x = uv_x / aspect_ratio;
-
         // Convert to screen coordinates
-        let screen_x = corrected_uv_x * screen_size.x * 0.5;
+        let screen_x = uv_x * screen_size.x * 0.5;
         let screen_y = uv_y * screen_size.y * 0.5; // Flip Y for Nannou
 
         Some(vec2(screen_x, screen_y))
     }
 
+    /// Clips the output of the camera's 3D to 2D map to the screen, returning None if the transformed `world_pos` does not fit on the screen
     pub fn world_to_screen(&self, world_pos: Vec3, screen_size: Vec2) -> Option<Vec2> {
         self.world_to_screen_unbounded(world_pos, screen_size)
             .and_then(|screen_pos| {

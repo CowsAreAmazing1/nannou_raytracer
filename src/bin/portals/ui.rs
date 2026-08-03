@@ -1,6 +1,6 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
-use nannou::glam::Quat;
+use nannou::glam::{Quat, Vec3};
 use nannou_egui::egui::{self, Slider, Ui};
 
 use crate::{
@@ -265,8 +265,12 @@ impl Model {
 
             ui.separator();
 
-            ui.add(egui::Slider::new(&mut self.bp_u, -FRAC_PI_2..=FRAC_PI_2));
-            ui.add(egui::Slider::new(&mut self.bp_v, -PI..=PI));
+            ui.add(egui::Slider::new(&mut self.bp_u, -FRAC_PI_2..=FRAC_PI_2).text("u"));
+            ui.add(egui::Slider::new(&mut self.bp_v, -PI..=PI).text("v"));
+
+            if ui.add(egui::Button::new("camera to origin")).clicked() {
+                self.camera.position = Vec3::ZERO;
+            }
         });
     }
 }

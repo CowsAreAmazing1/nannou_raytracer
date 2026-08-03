@@ -1,7 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use nannou::prelude::*;
-use nannou_egui::{Egui, egui};
+use nannou_egui::Egui;
 
 use crate::{
     camera::Camera,
@@ -72,13 +72,6 @@ fn model(app: &App) -> Model {
     let state = GpuState::new(device);
 
     let ui = Egui::from_window(&window);
-    let ctx = ui.ctx();
-    let input = egui::RawInput::default();
-    let _ = ctx.run(input, |ctx| {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Hello egui!");
-        });
-    });
 
     Model {
         window_id,
@@ -194,11 +187,11 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
     if app.keys.down.contains(&Key::Equals) {
         model.camera.fov_multiplier = (model.camera.fov_multiplier + 0.01).min(3.0);
-        println!("FOV: {:.2}", model.camera.fov_multiplier);
+        // println!("FOV: {:.2}", model.camera.fov_multiplier);
     }
     if app.keys.down.contains(&Key::Minus) {
         model.camera.fov_multiplier = (model.camera.fov_multiplier - 0.01).max(0.1);
-        println!("FOV: {:.2}", model.camera.fov_multiplier);
+        // println!("FOV: {:.2}", model.camera.fov_multiplier);
     }
 
     if movement.length() > 0.0 {
@@ -298,8 +291,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let queue = window.queue();
 
     // Update uniforms
-    let (w, h) = window.inner_size_points();
-    let screen_size = vec2(w, h);
+    let (w, h) = window.inner_size_pixels();
+    let scale_factor = window.scale_factor();
+    let screen_size = vec2(w as f32, h as f32) * scale_factor;
 
     let scene_data = &model.scenes[model.current_scene];
     let raw_data = Scene::to_raw(scene_data);
@@ -308,8 +302,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let v = model.bp_v;
     let base_perp = vec3(u.sin() * v.cos(), u.sin() * v.sin(), u.cos());
     let uniform = Uniform::build(
-        w,
-        h,
+        w as f32,
+        h as f32,
         app.time,
         model.current_scene,
         &model.camera,
