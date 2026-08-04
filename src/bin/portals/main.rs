@@ -8,7 +8,6 @@ use crate::{
     cpu_raytracer::{DebugRayEmitter, check_camera_portal_teleport},
     gpu::{GpuState, Uniform},
     scene::Scene,
-    util::quat_to,
 };
 
 mod camera;
@@ -33,9 +32,6 @@ struct Model {
     debug_ray_emitters: Vec<DebugRayEmitter>,
 
     ui: Egui,
-
-    bp_u: f32,
-    bp_v: f32,
 }
 
 impl Model {
@@ -84,9 +80,6 @@ fn model(app: &App) -> Model {
         debug_ray_emitters: Vec::new(),
 
         ui,
-
-        bp_u: 0.0,
-        bp_v: 0.0,
     }
 }
 
@@ -218,70 +211,34 @@ fn update(app: &App, model: &mut Model, update: Update) {
 }
 
 fn animate_portals(model: &mut Model, time: f32) {
-    if model.current_scene == 4 {
-        let scene = &mut model.scenes[model.current_scene];
+    let scene = &mut model.scenes[model.current_scene];
+    if model.current_scene == 5 && scene.data.portal_pair_count > 0 {
+        let sign = (time % 2.0 - 1.0).signum();
+        let time = sign * (1.0 - time % 2.0) + 1.0;
+        let time = 3.0 * time * time - 2.0 * time * time * time;
 
-        if scene.data.portal_pair_count > 0 {
-            // Oscillating portals
-            let base_pos_a = scene.data.portal_pairs[0].portal_a.position();
-            let base_pos_b = scene.data.portal_pairs[0].portal_b.position();
+        let a = vec3(0.0, 1.0, 0.0);
+        let b = vec3(-2.0, 1.0, 0.0);
+        let c = vec3(-2.0, 1.0, 2.0);
 
-            let rot_a = (0.0, (time * 0.2).sin(), FRAC_PI_2);
-            // let rot_b = Quat::from_rotation_y((-time * 0.3).sin())
-            // * quat_to(-Vec3::X);
+        let f3 = time * time;
+        let f1 = 1.0 - 2.0 * time + f3;
+        let f2 = 2.0 * time - 2.0 * f3;
 
-            scene.data.portal_pairs[0].animate_both(base_pos_a, rot_a, base_pos_b, (0.0, 0.0, 0.0));
-        }
+        let pos_a = f1 * a + f2 * b + f3 * c;
 
-        if scene.data.portal_pair_count > 1 {
-            // Rotating second portal pair
-            let rotation_speed = time * 0.8;
-            let pos_a = Vec3::new(0.0, 1.0, -6.3);
-            let pos_b = Vec3::new(
-                1.4 + (rotation_speed * 2.0).cos() * 0.5,
-                1.0 + (rotation_speed).sin() * 0.3,
-                -1.0 + (rotation_speed * 1.5).sin() * 0.4,
-            );
+        let f4 = -2.0 + 2.0 * time;
+        let f5 = 2.0 - 4.0 * time;
+        let f6 = 2.0 * time;
 
-            let rot_a = (FRAC_PI_2, rotation_speed, 0.0);
-            let rot_b = (0.0, -rotation_speed * 0.7, FRAC_PI_2);
+        let vel_a = f4 * a + f5 * b + f6 * c;
+        let vel_a_norm = vel_a.normalize();
+        let _angle = vel_a_norm.angle_between(Vec3::X);
 
-            scene.data.portal_pairs[1].animate_both(pos_a, rot_a, pos_b, rot_b);
-        }
-    } else if model.current_scene == 5 {
-        let scene = &mut model.scenes[model.current_scene];
+        let rot_a = (0.0, 0.0, FRAC_PI_2);
+        let rot_b = (0.0, 0.0, FRAC_PI_2);
 
-        if scene.data.portal_pair_count > 0 {
-            let sign = (time % 2.0 - 1.0).signum();
-            let time = sign * (1.0 - time % 2.0) + 1.0;
-            let time = 3.0 * time * time - 2.0 * time * time * time;
-
-            let a = vec3(0.0, 1.0, 0.0);
-            let b = vec3(-2.0, 1.0, 0.0);
-            let c = vec3(-2.0, 1.0, 2.0);
-
-            let f3 = time * time;
-            let f1 = 1.0 - 2.0 * time + f3;
-            let f2 = 2.0 * time - 2.0 * f3;
-
-            let pos_a = f1 * a + f2 * b + f3 * c;
-            // let pos_b = vec3(-pos_a.x, pos_a.y, pos_a.z);
-
-            let f4 = -2.0 + 2.0 * time;
-            let f5 = 2.0 - 4.0 * time;
-            let f6 = 2.0 * time;
-
-            let vel_a = f4 * a + f5 * b + f6 * c;
-            // let vel_b = vec3(-vel_a.x, vel_a.y, vel_a.z);
-            let vel_a_norm = vel_a.normalize();
-            // let vel_b_norm = vel_b.normalize();
-
-            let rot_a = quat_to(vel_a_norm).to_euler(nannou::glam::EulerRot::XYZ);
-            let rot_b = quat_to(Vec3::X).to_euler(nannou::glam::EulerRot::XYZ);
-
-            // scene.data.portal_pairs[0].animate_both(pos_a, rot_a, pos_b, rot_b);
-            scene.data.portal_pairs[0].animate_both(pos_a, rot_a, a, rot_b);
-        }
+        scene.data.portal_pairs[0].animate_both(pos_a, rot_a, a, rot_b);
     }
 }
 
@@ -296,16 +253,12 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let scene_data = &model.scenes[model.current_scene];
     let raw_data = Scene::to_raw(scene_data);
 
-    let u = model.bp_u;
-    let v = model.bp_v;
-    let base_perp = vec3(u.sin() * v.cos(), u.sin() * v.sin(), u.cos());
     let uniform = Uniform::build(
         w as f32,
         h as f32,
         app.time,
         model.current_scene,
         &model.camera,
-        base_perp,
     );
 
     // Upload to the GPU

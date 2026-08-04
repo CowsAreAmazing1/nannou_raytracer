@@ -3,6 +3,7 @@ use nannou::{
     color::{Srgb, WHITE},
     glam::{Mat4, Vec3},
 };
+use std::f32::consts::PI;
 
 use crate::scene::primitive::ellipse::{Ellipse, EllipseRaw};
 
@@ -27,7 +28,13 @@ impl Default for Portal {
 }
 
 impl Portal {
-    pub fn new(position: Vec3, rotation: (f32, f32, f32), radius_a: f32, radius_b: f32) -> Self {
+    pub fn new(
+        position: Vec3,
+        rotation: (f32, f32, f32),
+        radius_a: f32,
+        radius_b: f32,
+        flipped: bool,
+    ) -> Self {
         let ellipse = Ellipse::new(
             position,
             rotation,
@@ -44,67 +51,48 @@ impl Portal {
             inverse_transformation_matrix: Mat4::IDENTITY,
         };
 
-        portal.transform_from_self();
+        portal.transform_from_self(flipped);
         portal
     }
 
-    pub fn from_ellipse(ellipse: Ellipse) -> Self {
+    pub fn from_ellipse(ellipse: Ellipse, flipped: bool) -> Self {
         let mut portal = Self {
             ellipse,
             transformation_matrix: Mat4::IDENTITY,
             inverse_transformation_matrix: Mat4::IDENTITY,
         };
 
-        portal.transform_from_self();
+        portal.transform_from_self(flipped);
         portal
     }
 
-    pub fn transform_from_self(&mut self) {
-        let transform = Mat4::from_rotation_translation(self.ellipse.quat(), self.ellipse.center);
+    pub fn transform_from_self(&mut self, flipped: bool) {
+        let mut rotation = Mat4::from_quat(self.ellipse.quat());
+        let translation = Mat4::from_translation(self.ellipse.center);
+
+        if flipped {
+            rotation *= Mat4::from_rotation_y(PI);
+        }
+
+        let transform = translation * rotation;
 
         self.transformation_matrix = transform;
         self.inverse_transformation_matrix = transform.inverse();
     }
 
-    fn update_transform(&mut self, position: Vec3, rotation: (f32, f32, f32)) {
+    fn update_transform(&mut self, position: Vec3, rotation: (f32, f32, f32), flipped: bool) {
         self.ellipse.center = position;
         self.ellipse.rots = rotation;
 
-        self.transform_from_self();
+        self.transform_from_self(flipped);
     }
 
-    // NOT convinced by either of these. GAH
-    // fn apply_flip(&mut self) {
-    //     let rotation = Mat3::from_quat(self.ellipse.quat);
-    //     let y_to_neg_y = Mat3::from_cols(Vec3::X, -Vec3::Y, Vec3::Z);
-    //     let flipped_rotation = Mat4::from_mat3(rotation * y_to_neg_y);
-
-    //     let translation = Mat4::from_translation(self.position());
-
-    //     let flipped_transform = translation * flipped_rotation;
-
-    //     self.transformation_matrix = flipped_transform;
-    //     self.inverse_transformation_matrix = flipped_transform.inverse();
-    // }
-
-    fn apply_flip(&mut self) {
-        // let flip_matrix = Mat4::from_rotation_z(std::f32::consts::PI);
-        // let flipped_transform = self.transformation_matrix * flip_matrix;
-
-        // self.transformation_matrix = flipped_transform;
-        // self.inverse_transformation_matrix = flipped_transform.inverse();
-    }
-
-    pub fn animate(&mut self, position: Vec3, rotation: (f32, f32, f32)) {
-        self.update_transform(position, rotation);
+    pub fn animate(&mut self, position: Vec3, rotation: (f32, f32, f32), flipped: bool) {
+        self.update_transform(position, rotation, flipped);
     }
 
     pub fn normal(&self) -> Vec3 {
         self.ellipse.normal()
-    }
-
-    pub fn position(&self) -> Vec3 {
-        self.ellipse.center
     }
 }
 
@@ -145,8 +133,12 @@ pub struct PortalPair {
 
 impl PortalPair {
     pub fn new(portal_a: Portal, portal_b: Portal) -> Self {
-        // let mut flipped_a = portal_a;
-        // flipped_a.apply_flip(); // Always flip portal A
+        Self { portal_a, portal_b }
+    }
+
+    pub fn from_ellipses(ellipse_a: Ellipse, ellipse_b: Ellipse) -> Self {
+        let portal_a = Portal::from_ellipse(ellipse_a, true);
+        let portal_b = Portal::from_ellipse(ellipse_b, false);
 
         Self { portal_a, portal_b }
     }
@@ -158,10 +150,8 @@ impl PortalPair {
         pos_b: Vec3,
         rot_b: (f32, f32, f32),
     ) {
-        self.portal_a.animate(pos_a, rot_a);
-        self.portal_a.apply_flip();
-
-        self.portal_b.animate(pos_b, rot_b);
+        self.portal_a.animate(pos_a, rot_a, true);
+        self.portal_b.animate(pos_b, rot_b, false);
     }
 }
 

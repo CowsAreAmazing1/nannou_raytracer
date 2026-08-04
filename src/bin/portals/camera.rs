@@ -97,7 +97,7 @@ impl Camera {
 
         // Convert to screen coordinates
         let screen_x = uv_x * screen_size.x * 0.5;
-        let screen_y = uv_y * screen_size.y * 0.5; // Flip Y for Nannou
+        let screen_y = uv_y * screen_size.y * 0.5;
 
         Some(vec2(screen_x, screen_y))
     }

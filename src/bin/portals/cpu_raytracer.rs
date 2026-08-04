@@ -176,10 +176,10 @@ fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> Hi
 }
 
 fn transform_point_through_portal(point: Vec3, in_portal: &Portal, out_portal: &Portal) -> Vec3 {
-    let in_transform = in_portal.inverse_transformation_matrix;
-    let out_transform = out_portal.transformation_matrix;
+    let in_mat = in_portal.inverse_transformation_matrix;
+    let out_mat = out_portal.transformation_matrix;
 
-    out_transform.transform_point3(in_transform.transform_point3(point))
+    out_mat.project_point3(in_mat.project_point3(point))
 }
 
 fn transform_direction_through_portal(
@@ -187,17 +187,13 @@ fn transform_direction_through_portal(
     in_portal: &Portal,
     out_portal: &Portal,
 ) -> Vec3 {
-    let in_transform = in_portal.inverse_transformation_matrix;
-    let out_transform = out_portal.transformation_matrix;
+    let in_mat = in_portal.inverse_transformation_matrix;
+    let out_mat = out_portal.transformation_matrix;
 
-    let base_direction = in_transform.transform_vector3(direction);
+    let mut base_direction = in_mat.transform_vector3(direction);
+    base_direction.y = -base_direction.y;
 
-    let base_perp = Vec3::Y;
-    let flipped_base_direction = 2.0 * base_direction.dot(base_perp) * base_perp - base_direction;
-
-    out_transform
-        .transform_vector3(flipped_base_direction)
-        .normalize()
+    out_mat.transform_vector3(base_direction).normalize()
 }
 
 fn bounce_color(bounce_count: u32) -> [f32; 3] {

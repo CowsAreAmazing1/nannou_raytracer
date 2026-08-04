@@ -1,7 +1,6 @@
 use bytemuck::{NoUninit, Pod, Zeroable, cast_slice};
 use nannou::{
     Frame,
-    glam::Vec3,
     wgpu::{self, Device, Queue},
 };
 
@@ -17,19 +16,10 @@ pub struct Uniform {
     fov: f32,
     camera_dir: [f32; 3],
     _padding: f32,
-    base_perp: [f32; 3],
-    _padding2: f32,
 }
 
 impl Uniform {
-    pub fn build(
-        w: f32,
-        h: f32,
-        time: f32,
-        current_scene: usize,
-        camera: &Camera,
-        base_perp: Vec3,
-    ) -> Self {
+    pub fn build(w: f32, h: f32, time: f32, current_scene: usize, camera: &Camera) -> Self {
         let camera_pos = camera.position.to_array();
         let camera_dir = camera.forward().to_array();
 
@@ -41,8 +31,6 @@ impl Uniform {
             fov: camera.fov_multiplier,
             camera_dir,
             _padding: 0.0,
-            base_perp: base_perp.to_array(),
-            _padding2: 0.0,
         }
     }
 }

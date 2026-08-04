@@ -59,7 +59,6 @@ impl Ellipse {
     pub fn quat(&self) -> Quat {
         let (a, b, c) = self.rots;
         Quat::from_euler(nannou::glam::EulerRot::XYZ, a, b, c)
-        // Quat::from_rotation_z(rots.2) *
     }
 
     pub fn normal(&self) -> Vec3 {
