@@ -45,6 +45,14 @@ impl Camera {
         Vec3::Y // eventually `up` will include camera roll
     }
 
+    /// Returns the forward, right, and up vectors of the camera. Used for debug rays. Change this in the new camera orientation fix
+    pub fn directions(&self) -> (Vec3, Vec3, Vec3) {
+        let forward = self.forward();
+        let right = forward.cross(WORLD_UP).normalize();
+        let up = right.cross(forward);
+        (forward, right, up)
+    }
+
     fn shader_camera_right(&self) -> Vec3 {
         let camera_forward = self.forward();
         camera_forward.cross(WORLD_UP).normalize()

@@ -10,7 +10,18 @@ use crate::{
     util::WORLD_UP,
 };
 
-pub struct DebugRay {
+pub struct DebugRayEmitter {
+    origin: Vec3,
+    directions: (Vec3, Vec3, Vec3), // (forward, right, up)
+}
+
+impl DebugRayEmitter {
+    pub fn new(origin: Vec3, directions: (Vec3, Vec3, Vec3)) -> Self {
+        Self { origin, directions }
+    }
+}
+
+struct DebugRay {
     pub segments: Vec<RaySegment>,
 }
 
@@ -297,45 +308,42 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
 }
 
 impl Model {
-    pub fn shoot_debug_ray(&mut self) {
+    pub fn add_debug_ray_emitter(&mut self) {
         let camera = &self.camera;
+        let ray_emitter = DebugRayEmitter::new(camera.position, camera.directions());
+        self.debug_ray_emitters.push(ray_emitter);
+    }
 
-        let camera_forward = camera.forward();
-        let camera_right = camera_forward.cross(WORLD_UP).normalize();
-        let camera_up = camera_right.cross(camera_forward);
-
+    pub fn draw_debug_ray(&self, draw: &Draw, screen_size: Vec2) {
         let mut debug_rays = vec![];
 
         let m = 0.2;
         let res_x = 3;
         let res_y = 3;
 
-        for x in 0..res_x {
-            for y in 0..res_y {
-                let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
-                let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
+        for emitter in self.debug_ray_emitters.iter() {
+            let (forward, right, up) = emitter.directions;
 
-                let ray_direction = (camera_forward
-                    + uv_x * camera_right * camera.fov_multiplier
-                    + uv_y * camera_up * camera.fov_multiplier)
-                    .normalize();
+            for x in 0..res_x {
+                for y in 0..res_y {
+                    let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
+                    let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
 
-                let debug_ray = trace_debug_ray(
-                    &self.scenes[self.current_scene].data,
-                    camera.position,
-                    ray_direction,
-                    10,
-                );
+                    let ray_direction = (forward + uv_x * right + uv_y * up).normalize();
 
-                debug_rays.push(debug_ray);
+                    let debug_ray = trace_debug_ray(
+                        &self.scenes[self.current_scene].data,
+                        emitter.origin,
+                        ray_direction,
+                        10,
+                    );
+
+                    debug_rays.push(debug_ray);
+                }
             }
         }
 
-        self.debug_rays.append(&mut debug_rays);
-    }
-
-    pub fn draw_debug_ray(&self, draw: &Draw, screen_size: Vec2) {
-        for ray in self.debug_rays.iter() {
+        for ray in debug_rays.iter() {
             for segment in &ray.segments {
                 // Try to get screen positions for both points
                 let start_2d = self.camera.world_to_screen(segment.start, screen_size);

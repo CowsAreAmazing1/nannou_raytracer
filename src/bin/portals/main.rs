@@ -5,7 +5,7 @@ use nannou_egui::Egui;
 
 use crate::{
     camera::Camera,
-    cpu_raytracer::{DebugRay, check_camera_portal_teleport},
+    cpu_raytracer::{DebugRayEmitter, check_camera_portal_teleport},
     gpu::{GpuState, Uniform},
     scene::Scene,
     util::quat_to,
@@ -30,7 +30,7 @@ struct Model {
     camera: Camera,
     mouse_locked: bool,
 
-    debug_rays: Vec<DebugRay>,
+    debug_ray_emitters: Vec<DebugRayEmitter>,
 
     ui: Egui,
 
@@ -81,7 +81,7 @@ fn model(app: &App) -> Model {
         camera: Camera::new(),
         mouse_locked: false,
 
-        debug_rays: Vec::new(),
+        debug_ray_emitters: Vec::new(),
 
         ui,
 
@@ -115,10 +115,10 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) {
             );
         }
         Key::R => {
-            model.shoot_debug_ray();
+            model.add_debug_ray_emitter();
         }
         Key::C => {
-            model.debug_rays = Vec::new();
+            model.debug_ray_emitters = Vec::new();
         }
         _ => {}
     }
