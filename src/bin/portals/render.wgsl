@@ -267,10 +267,10 @@ fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
                      (v * v) / (ellipse.radius_b * ellipse.radius_b);
 
     if outer_test > 1.0 {
-        return -1.0; // Outside outer ellipse
+        return -1.0;
     }
 
-    return t; // Valid intersection with the ring
+    return t;
 }
 
 fn get_ellipse_color(ellipse: Ellipse, hit_point: vec3<f32>) -> vec3<f32> {
@@ -352,6 +352,7 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
     final_hit_info.multiplier = 1.0;
 
     for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
+        // Send ray through the scene, ignoring portals
         let hit_info = trace_ray_single_bounce(current_ray);
 
         // Check for portal intersections
@@ -487,7 +488,7 @@ fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
     return hit_info;
 }
 
-// Calculate reflection direction
+// Calculate reflection direction of an `incident` ray bouncing off a surface with normal `normal`
 fn reflect(incident: vec3<f32>, normal: vec3<f32>) -> vec3<f32> {
     return incident - 2.0 * dot(incident, normal) * normal;
 }

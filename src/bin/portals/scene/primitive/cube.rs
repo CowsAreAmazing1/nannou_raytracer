@@ -23,6 +23,30 @@ impl Cube {
             color: color.into(),
         }
     }
+
+    pub fn planes(&self) -> [Plane; 6] {
+        let axes = [Vec3::X, Vec3::Y, Vec3::Z, -Vec3::X, -Vec3::Y, -Vec3::Z];
+
+        std::array::from_fn(|i| {
+            let axis = axes[i];
+            let point = self.center + axis * (0.5 * self.size);
+            let quat = quat_to(axis);
+
+            Plane::new_finite(point, quat, self.color, self.size, self.size)
+        })
+    }
+
+    pub fn planes_raw(&self) -> [PlaneRaw; 6] {
+        let axes = [Vec3::X, Vec3::Y, Vec3::Z, -Vec3::X, -Vec3::Y, -Vec3::Z];
+
+        std::array::from_fn(|i| {
+            let axis = axes[i];
+            let point = self.center + axis * (0.5 * self.size);
+            let quat = quat_to(axis);
+
+            Plane::new_finite(point, quat, self.color, self.size, self.size).into()
+        })
+    }
 }
 
 #[repr(C)]
@@ -33,15 +57,7 @@ pub struct CubeRaw {
 
 impl From<Cube> for CubeRaw {
     fn from(cube: Cube) -> Self {
-        let axes = [Vec3::X, Vec3::Y, Vec3::Z, -Vec3::X, -Vec3::Y, -Vec3::Z];
-
-        let planes = std::array::from_fn(|i| {
-            let axis = axes[i];
-            let point = cube.center + axis * (0.5 * cube.size);
-            let quat = quat_to(axis);
-
-            Plane::new_finite(point, quat, cube.color, cube.size, cube.size).into()
-        });
+        let planes = cube.planes_raw();
 
         Self { planes }
     }
