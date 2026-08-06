@@ -8,7 +8,7 @@ use nannou::{
 pub struct Ellipse {
     /// Position of the center of the ellipse
     pub center: Vec3,
-    /// Rotation values either XYZ or Euler angles
+    /// Euler angle rotation values. Ideally this is a quaternion, but ui sliders become a pain to work with when using quaternions
     pub rots: (f32, f32, f32),
     /// Innder radius
     pub(crate) radius_a: f32,

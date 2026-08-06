@@ -1,7 +1,7 @@
 use nannou::prelude::*;
 
 use crate::{
-    Camera, Model,
+    Model,
     scene::{
         SceneData,
         portal::Portal,
@@ -22,13 +22,34 @@ impl DebugRayEmitter {
 }
 
 struct DebugRay {
-    pub segments: Vec<RaySegment>,
+    pub segments: Vec<Segment>,
 }
 
-pub struct RaySegment {
+pub struct Segment {
     pub start: Vec3,
     pub end: Vec3,
     pub color: [f32; 3],
+    pub weight: f32,
+}
+
+impl Segment {
+    pub fn new(start: Vec3, end: Vec3, color: [f32; 3], weight: f32) -> Self {
+        Self {
+            start,
+            end,
+            color,
+            weight,
+        }
+    }
+
+    pub fn new_with_bounce(start: Vec3, end: Vec3, bounce: u32) -> Self {
+        Self {
+            start,
+            end,
+            color: bounce_color(bounce),
+            weight: 3.0,
+        }
+    }
 }
 
 struct HitInfoCpu {
@@ -257,11 +278,11 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
             // Hit the front side of a portal; draw the segment to the hit point, teleport the ray, and continue bouncing
             PortalHitType::Front(portal_a, portal_b) => {
                 let portal_hit_point = curr_ray_origin + closest_portal_t * curr_ray_direction;
-                segments.push(RaySegment {
-                    start: curr_ray_origin,
-                    end: portal_hit_point,
-                    color: bounce_color(bounce),
-                });
+                segments.push(Segment::new_with_bounce(
+                    curr_ray_origin,
+                    portal_hit_point,
+                    bounce,
+                ));
 
                 curr_ray_origin =
                     transform_point_through_portal(portal_hit_point, portal_a, portal_b);
@@ -272,28 +293,28 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
             // Hit the back side of a portal; draw the segment to the hit point and break the bounce loop
             PortalHitType::Back => {
                 let portal_hit_point = curr_ray_origin + closest_portal_t * curr_ray_direction;
-                segments.push(RaySegment {
-                    start: curr_ray_origin,
-                    end: portal_hit_point,
-                    color: bounce_color(bounce),
-                });
+                segments.push(Segment::new_with_bounce(
+                    curr_ray_origin,
+                    portal_hit_point,
+                    bounce,
+                ));
                 break;
             }
 
             // No portal hit; draw the segment to the scene hit point and break the bounce loop
             PortalHitType::None => {
                 if hit_info.hit {
-                    segments.push(RaySegment {
-                        start: curr_ray_origin,
-                        end: hit_info.point,
-                        color: bounce_color(bounce),
-                    });
+                    segments.push(Segment::new_with_bounce(
+                        curr_ray_origin,
+                        hit_info.point,
+                        bounce,
+                    ));
                 } else {
-                    segments.push(RaySegment {
-                        start: curr_ray_origin,
-                        end: curr_ray_origin + 20.0 * curr_ray_direction,
-                        color: bounce_color(bounce),
-                    });
+                    segments.push(Segment::new_with_bounce(
+                        curr_ray_origin,
+                        curr_ray_origin + 20.0 * curr_ray_direction,
+                        bounce,
+                    ));
                 }
                 break;
             }
@@ -354,70 +375,10 @@ impl Model {
 
         for ray in debug_rays.iter() {
             for segment in &ray.segments {
-                // Try to get screen positions for both points
-                let start_2d = self.camera.world_to_screen(segment.start, screen_size);
-                let end_2d = self.camera.world_to_screen(segment.end, screen_size);
-
-                // Handle different visibility cases
-                match (start_2d, end_2d) {
-                    // Both points visible - draw normally
-                    (Some(start), Some(end)) => {
-                        draw.line()
-                            .start(pt2(start.x, start.y))
-                            .end(pt2(end.x, end.y))
-                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                            .weight(3.0);
-                    }
-                    // Only start visible - clip to screen edge
-                    (Some(start), None) => {
-                        if let Some(clipped_end) = Camera::clip_ray_to_screen(
-                            segment.start,
-                            segment.end,
-                            &self.camera,
-                            screen_size,
-                        ) {
-                            draw.line()
-                                .start(pt2(start.x, start.y))
-                                .end(pt2(clipped_end.x, clipped_end.y))
-                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                                .weight(3.0);
-                        }
-                    }
-                    // Only end visible - clip from screen edge
-                    (None, Some(end)) => {
-                        if let Some(clipped_start) = Camera::clip_ray_to_screen(
-                            segment.end,
-                            segment.start,
-                            &self.camera,
-                            screen_size,
-                        ) {
-                            draw.line()
-                                .start(pt2(clipped_start.x, clipped_start.y))
-                                .end(pt2(end.x, end.y))
-                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                                .weight(3.0);
-                        }
-                    }
-                    // Neither visible - try to find screen intersection
-                    (None, None) => {
-                        if let Some((clipped_start, clipped_end)) =
-                            Camera::clip_line_segment_to_screen(
-                                segment.start,
-                                segment.end,
-                                &self.camera,
-                                screen_size,
-                            )
-                        {
-                            draw.line()
-                                .start(pt2(clipped_start.x, clipped_start.y))
-                                .end(pt2(clipped_end.x, clipped_end.y))
-                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                                .weight(3.0);
-                        }
-                    }
-                }
+                self.camera.draw_segment(draw, segment, screen_size);
             }
 
+            // Draw the origin of the ray
             if let Some(first_segment) = ray.segments.first()
                 && let Some(origin_2d) = self
                     .camera

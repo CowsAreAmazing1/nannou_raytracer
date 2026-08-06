@@ -240,6 +240,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
     // Include the scale factor in the screen size
     let screen_size = vec2(w as f32, h as f32) * window.scale_factor();
     model.draw_debug_ray(&draw, screen_size);
+
+    model.camera.draw_ring(&draw, screen_size);
+
     draw.to_frame(app, &frame).unwrap();
 
     // Draw ui on top of everything else

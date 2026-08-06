@@ -78,7 +78,7 @@ struct VertexOutput {
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var out: VertexOutput;
-    // Generate a full-screen triangle
+    // Generate a full-screen triangle ?? it actually is lol
     let x = f32((vertex_index << 1u) & 2u) * 2.0 - 1.0;
     let y = f32(vertex_index & 2u) * 2.0 - 1.0;
     out.position = vec4<f32>(x, y, 0.0, 1.0);
@@ -509,8 +509,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Calculate ray direction
     let ray_direction = normalize(
         camera_forward +
-        uv.x * camera_right * uniforms.fov +
-        uv.y * camera_up * uniforms.fov
+        uv.x * camera_right * atan(uniforms.fov) +
+        uv.y * camera_up * atan(uniforms.fov)
     );
 
     let primary_ray = Ray(ray_origin, ray_direction);
