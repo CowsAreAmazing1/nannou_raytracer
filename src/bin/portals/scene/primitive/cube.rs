@@ -62,3 +62,11 @@ impl From<Cube> for CubeRaw {
         Self { planes }
     }
 }
+
+impl From<&Cube> for CubeRaw {
+    fn from(cube: &Cube) -> Self {
+        let planes = cube.planes_raw();
+
+        Self { planes }
+    }
+}

@@ -338,34 +338,7 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
 
         scene.add_portal_pair(PortalPair::new(
-            Portal::new(vec3(0.0, 1.0, 0.5), (0.0, 0.0, 0.0), 0.7, 0.9, true),
-            Portal::new(vec3(0.0, 1.0, -0.5), (FRAC_PI_2, 0.0, 0.0), 0.7, 0.9, false),
-        ));
-
-        scenes.push(scene);
-    }
-
-    {
-        let mut scene = Scene::new("Static Door");
-
-        scene.add_plane(Plane::new_finite(
-            [0.0, 0.0, -1.25],
-            Quat::IDENTITY,
-            (0.4, 0.1, 0.4),
-            2.5,
-            5.0,
-        ));
-
-        scene.add_plane(Plane::new_finite(
-            [0.0, 0.0, 1.25],
-            Quat::IDENTITY,
-            (0.1, 0.4, 0.4),
-            2.5,
-            5.0,
-        ));
-
-        scene.add_portal_pair(PortalPair::new(
-            Portal::new(vec3(0.1, 1.0, 0.0), (0.0, 0.0, FRAC_PI_2), 0.7, 0.9, true),
+            Portal::new(vec3(1.5, 1.0, 1.5), (0.0, 0.0, FRAC_PI_2), 0.7, 0.9, true),
             Portal::new(vec3(0.0, 1.0, 0.0), (0.0, PI, FRAC_PI_2), 0.7, 0.9, false),
         ));
 

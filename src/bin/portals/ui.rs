@@ -7,7 +7,7 @@ use crate::{
     Model,
     camera::Camera,
     scene::{
-        portal::Portal,
+        portal::{Portal, PortalPair},
         primitive::{ellipse::Ellipse, plane::Plane},
     },
 };
@@ -121,48 +121,23 @@ impl Ellipse {
 
 impl Portal {
     fn add_ui(&mut self, ui: &mut Ui, flipped: bool) {
-        // ui.collapsing("Point", |ui| {
-        //     let position = &mut self.ellipse.center;
-        //     ui.horizontal(|ui| {
-        //         ui.label("x");
-        //         ui.add(Slider::new(&mut position.x, -10.0..=10.0));
-        //     });
-        //     ui.horizontal(|ui| {
-        //         ui.label("y");
-        //         ui.add(Slider::new(&mut position.y, -10.0..=10.0));
-        //     });
-        //     ui.horizontal(|ui| {
-        //         ui.label("z");
-        //         ui.add(Slider::new(&mut position.z, -10.0..=10.0));
-        //     });
-        // });
-
-        // let (mut a, mut b, mut c) = self.ellipse.quat.to_euler(nannou::glam::EulerRot::XYZ);
-        // a /= PI;
-        // b /= PI;
-        // c /= PI;
-
-        // ui.collapsing("Normal", |ui| {
-        //     ui.horizontal(|ui| {
-        //         ui.label("a");
-        //         ui.add(Slider::new(&mut a, -1.0..=1.0));
-        //     });
-        //     ui.horizontal(|ui| {
-        //         ui.label("b");
-        //         ui.add(Slider::new(&mut b, -1.0..=1.0));
-        //     });
-        //     ui.horizontal(|ui| {
-        //         ui.label("c");
-        //         ui.add(Slider::new(&mut c, -1.0..=1.0));
-        //     });
-
-        //     self.ellipse.quat =
-        //         Quat::from_euler(nannou::glam::EulerRot::XYZ, PI * a, PI * b, PI * c);
-        // });
-
         self.ellipse.add_ui(ui);
 
         self.transform_from_self(flipped);
+    }
+}
+
+impl PortalPair {
+    fn add_ui(&mut self, ui: &mut Ui) {
+        ui.collapsing("Portal A", |ui| {
+            self.portal_a.add_ui(ui, true);
+        });
+        ui.collapsing("Portal B", |ui| {
+            self.portal_b.add_ui(ui, false);
+        });
+
+        ui.add(egui::Slider::new(&mut self.doorification, 0.0..=1.0));
+        self.doorify_a_to_b();
     }
 }
 
@@ -207,12 +182,7 @@ impl Model {
                         for (pair_idx, pair) in pairs.iter_mut().enumerate() {
                             let pair_label = format!("Portal Pair {}", pair_idx + 1);
                             ui.collapsing(&pair_label, |ui| {
-                                ui.collapsing("Portal A", |ui| {
-                                    pair.portal_a.add_ui(ui, true);
-                                });
-                                ui.collapsing("Portal B", |ui| {
-                                    pair.portal_b.add_ui(ui, false);
-                                });
+                                pair.add_ui(ui);
                             });
                         }
                     });
@@ -220,10 +190,11 @@ impl Model {
 
                 // test portal transforms
                 if self.current_scene == 0 {
-                    let scene = &mut self.scenes[0].data;
-                    scene.cubes[0].center = self.camera.position;
+                    let scene_data = &mut self.scenes[0].data;
+                    scene_data.cubes[0].center = self.camera.position;
 
-                    let portal_pair = self.scenes[0].data.portal_pairs[0];
+                    // let portal_pair = &self.scenes[0].data.portal_pairs[0];
+                    let portal_pair = &scene_data.portal_pairs[0];
 
                     // portal a
                     if ui
@@ -232,7 +203,7 @@ impl Model {
                     {
                         let transform = portal_pair.portal_a.transformation_matrix;
 
-                        let cube = &mut self.scenes[0].data.cubes[0];
+                        let cube = &mut scene_data.cubes[0];
                         cube.center = transform.transform_point3(cube.center);
                     }
                     if ui
@@ -241,7 +212,7 @@ impl Model {
                     {
                         let transform = portal_pair.portal_a.inverse_transformation_matrix;
 
-                        let cube = &mut self.scenes[0].data.cubes[0];
+                        let cube = &mut scene_data.cubes[0];
                         cube.center = transform.transform_point3(cube.center);
                     }
 
@@ -252,7 +223,7 @@ impl Model {
                     {
                         let transform = portal_pair.portal_b.transformation_matrix;
 
-                        let cube = &mut self.scenes[0].data.cubes[0];
+                        let cube = &mut scene_data.cubes[0];
                         cube.center = transform.transform_point3(cube.center);
                     }
                     if ui

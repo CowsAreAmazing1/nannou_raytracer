@@ -107,9 +107,6 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) {
                 if model.mouse_locked { "ON" } else { "OFF" }
             );
         }
-        Key::R => {
-            model.add_debug_ray_emitter();
-        }
         Key::C => {
             model.debug_ray_emitters = Vec::new();
         }
@@ -187,6 +184,10 @@ fn update(app: &App, model: &mut Model, update: Update) {
         // println!("FOV: {:.2}", model.camera.fov_multiplier);
     }
 
+    if app.keys.down.contains(&Key::R) {
+        model.add_debug_ray_emitter();
+    }
+
     if movement.length() > 0.0 {
         movement = movement.normalize() * model.camera.speed * dt;
         let new_position = model.camera.position + movement;
@@ -206,40 +207,6 @@ fn update(app: &App, model: &mut Model, update: Update) {
     // let pos = lerp * (1.0 - lerp) * Vec3::ZERO + lerp * Vec3::new(0.0, 1.0, 5.0);
 
     // model.camera.position = pos;
-
-    animate_portals(model, app.time);
-}
-
-fn animate_portals(model: &mut Model, time: f32) {
-    let scene = &mut model.scenes[model.current_scene];
-    if model.current_scene == 5 && scene.data.portal_pair_count > 0 {
-        let sign = (time % 2.0 - 1.0).signum();
-        let time = sign * (1.0 - time % 2.0) + 1.0;
-        let time = 3.0 * time * time - 2.0 * time * time * time;
-
-        let a = vec3(0.0, 1.0, 0.0);
-        let b = vec3(-2.0, 1.0, 0.0);
-        let c = vec3(-2.0, 1.0, 2.0);
-
-        let f3 = time * time;
-        let f1 = 1.0 - 2.0 * time + f3;
-        let f2 = 2.0 * time - 2.0 * f3;
-
-        let pos_a = f1 * a + f2 * b + f3 * c;
-
-        let f4 = -2.0 + 2.0 * time;
-        let f5 = 2.0 - 4.0 * time;
-        let f6 = 2.0 * time;
-
-        let vel_a = f4 * a + f5 * b + f6 * c;
-        let vel_a_norm = vel_a.normalize();
-        let _angle = vel_a_norm.angle_between(Vec3::X);
-
-        let rot_a = (0.0, 0.0, FRAC_PI_2);
-        let rot_b = (0.0, 0.0, FRAC_PI_2);
-
-        scene.data.portal_pairs[0].animate_both(pos_a, rot_a, a, rot_b);
-    }
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {

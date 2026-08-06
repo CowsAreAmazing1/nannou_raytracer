@@ -87,22 +87,23 @@ impl Scene {
 
         for (i, plane) in self.data.planes.iter().enumerate() {
             if i < MAX_PLANES {
-                planes[i] = (*plane).into();
+                planes[i] = plane.into();
             }
         }
         for (i, ellipse) in self.data.ellipses.iter().enumerate() {
             if i < MAX_ELLIPSES {
-                ellipses[i] = (*ellipse).into();
+                ellipses[i] = ellipse.into();
             }
         }
         for (i, portal_pair) in self.data.portal_pairs.iter().enumerate() {
             if i < MAX_PORTAL_PAIRS {
-                portal_pairs[i] = (*portal_pair).into();
+                // Maybe not the best?
+                portal_pairs[i] = portal_pair.into();
             }
         }
         for (i, cube) in self.data.cubes.iter().enumerate() {
             if i < MAX_CUBES {
-                cubes[i] = (*cube).into();
+                cubes[i] = cube.into();
             }
         }
 

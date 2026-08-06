@@ -120,3 +120,22 @@ impl From<Ellipse> for EllipseRaw {
         }
     }
 }
+
+impl From<&Ellipse> for EllipseRaw {
+    fn from(value: &Ellipse) -> Self {
+        Self {
+            center: value.center.to_array(),
+            _padding1: 0.0,
+            normal: (value.quat() * Vec3::Y).normalize().to_array(),
+            _padding2: 0.0,
+            radius_a: value.radius_a,
+            radius_b: value.radius_b,
+            border_thickness: value.border_thickness,
+            _padding3: 0.0,
+            color: value.color.into_components().into(),
+            _padding4: 0.0,
+            border_color: value.border_color.into_components().into(),
+            _padding5: 0.0,
+        }
+    }
+}

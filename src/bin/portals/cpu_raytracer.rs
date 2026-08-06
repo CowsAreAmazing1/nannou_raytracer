@@ -229,7 +229,7 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
             let p_b = &portal_pair.portal_b;
 
             // Check portal A
-            let t_a = ray_ellipse_intersect_cpu(curr_ray_origin, curr_ray_direction, p_a.ellipse);
+            let t_a = ray_ellipse_intersect_cpu(curr_ray_origin, curr_ray_direction, p_a.ellipse());
             if t_a > 0.001 && t_a < closest_portal_t {
                 closest_portal_t = t_a;
 
@@ -241,7 +241,7 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
             }
 
             // Check portal B
-            let t_b = ray_ellipse_intersect_cpu(curr_ray_origin, curr_ray_direction, p_b.ellipse);
+            let t_b = ray_ellipse_intersect_cpu(curr_ray_origin, curr_ray_direction, p_b.ellipse());
             if t_b > 0.001 && t_b < closest_portal_t {
                 closest_portal_t = t_b;
 
@@ -311,33 +311,46 @@ impl Model {
     }
 
     pub fn draw_debug_ray(&self, draw: &Draw, screen_size: Vec2) {
-        let mut debug_rays = vec![];
+        let mut debug_rays = Vec::new();
 
-        let m = 0.2;
-        let res_x = 3;
-        let res_y = 3;
-
+        // Shoots a single ray directly forward from the camera
         for emitter in self.debug_ray_emitters.iter() {
-            let (forward, right, up) = emitter.directions;
-
-            for x in 0..res_x {
-                for y in 0..res_y {
-                    let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
-                    let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
-
-                    let ray_direction = (forward + uv_x * right + uv_y * up).normalize();
-
-                    let debug_ray = trace_debug_ray(
-                        &self.scenes[self.current_scene].data,
-                        emitter.origin,
-                        ray_direction,
-                        10,
-                    );
-
-                    debug_rays.push(debug_ray);
-                }
-            }
+            let ray_direction = emitter.directions.0;
+            let debug_ray = trace_debug_ray(
+                &self.scenes[self.current_scene].data,
+                emitter.origin,
+                ray_direction,
+                10,
+            );
+            debug_rays.push(debug_ray);
         }
+
+        // Shoots a spread of rays
+        // let m = 0.2;
+        // let res_x = 1;
+        // let res_y = 3;
+
+        // for emitter in self.debug_ray_emitters.iter() {
+        //     let (forward, right, up) = emitter.directions;
+
+        //     for x in 0..res_x {
+        //         for y in 0..res_y {
+        //             let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
+        //             let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
+
+        //             let ray_direction = (forward + uv_x * right + uv_y * up).normalize();
+
+        //             let debug_ray = trace_debug_ray(
+        //                 &self.scenes[self.current_scene].data,
+        //                 emitter.origin,
+        //                 ray_direction,
+        //                 10,
+        //             );
+
+        //             debug_rays.push(debug_ray);
+        //         }
+        //     }
+        // }
 
         for ray in debug_rays.iter() {
             for segment in &ray.segments {
@@ -467,7 +480,7 @@ fn check_single_portal_teleport(
     in_portal: &Portal,
     out_portal: &Portal,
 ) -> Option<Vec3> {
-    let ellipse = in_portal.ellipse;
+    let ellipse = in_portal.ellipse();
 
     let t = ray_ellipse_intersect_cpu(ray_origin, ray_direction, ellipse);
 

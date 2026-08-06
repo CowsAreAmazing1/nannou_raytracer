@@ -1,20 +1,36 @@
 use bytemuck::{Pod, Zeroable};
 use nannou::{
     color::{Srgb, WHITE},
-    glam::{Mat4, Vec3},
+    glam::{Mat4, Quat, Vec3},
 };
 use std::f32::consts::PI;
 
 use crate::scene::primitive::ellipse::{Ellipse, EllipseRaw};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct Portal {
     /// The visible part of the portal. The teleporting surface is in the ellipse's normal direction.
-    pub ellipse: Ellipse,
+    pub(crate) ellipse: Ellipse,
     /// Transforms a point from the base portal to this portal
     pub transformation_matrix: Mat4,
     /// Transforms a point from this portal to the base portal
     pub inverse_transformation_matrix: Mat4,
+    /// Lerps the portal to the position and rotation of the other portal, creating a doorway
+    doorification: f32,
+    /// Reference to this portal's partner
+    partner: Option<*const Portal>,
+}
+
+impl Clone for Portal {
+    fn clone(&self) -> Self {
+        Self {
+            ellipse: self.ellipse,
+            transformation_matrix: self.transformation_matrix,
+            inverse_transformation_matrix: self.inverse_transformation_matrix,
+            doorification: self.doorification,
+            partner: None, // Cloning a portal does not clone its partner reference
+        }
+    }
 }
 
 impl Default for Portal {
@@ -23,6 +39,8 @@ impl Default for Portal {
             ellipse: Ellipse::default(),
             transformation_matrix: Mat4::IDENTITY,
             inverse_transformation_matrix: Mat4::IDENTITY,
+            doorification: 0.0,
+            partner: None,
         }
     }
 }
@@ -49,6 +67,8 @@ impl Portal {
             ellipse,
             transformation_matrix: Mat4::IDENTITY,
             inverse_transformation_matrix: Mat4::IDENTITY,
+            doorification: 0.0,
+            partner: None,
         };
 
         portal.transform_from_self(flipped);
@@ -60,10 +80,38 @@ impl Portal {
             ellipse,
             transformation_matrix: Mat4::IDENTITY,
             inverse_transformation_matrix: Mat4::IDENTITY,
+            doorification: 0.0,
+            partner: None,
         };
 
         portal.transform_from_self(flipped);
         portal
+    }
+
+    fn set_partner_ptr(&mut self, partner: *const Portal) {
+        self.partner = Some(partner);
+    }
+
+    pub fn partner(&self) -> &Portal {
+        self.partner
+            .map(|ptr| unsafe { &*ptr })
+            .expect("Lone portal!")
+    }
+
+    pub fn set_transform(&mut self, position: Vec3, rotation: (f32, f32, f32), flipped: bool) {
+        let (a, b, c) = rotation;
+        let quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, a, b, c);
+        let mut rotation = Mat4::from_quat(quat);
+        let translation = Mat4::from_translation(position);
+
+        if flipped {
+            rotation *= Mat4::from_rotation_y(PI);
+        }
+
+        let transform = translation * rotation;
+
+        self.transformation_matrix = transform;
+        self.inverse_transformation_matrix = transform.inverse();
     }
 
     pub fn transform_from_self(&mut self, flipped: bool) {
@@ -80,15 +128,41 @@ impl Portal {
         self.inverse_transformation_matrix = transform.inverse();
     }
 
-    fn update_transform(&mut self, position: Vec3, rotation: (f32, f32, f32), flipped: bool) {
-        self.ellipse.center = position;
-        self.ellipse.rots = rotation;
-
-        self.transform_from_self(flipped);
+    pub fn position(&self) -> Vec3 {
+        let partner = self.partner();
+        self.ellipse
+            .center
+            .lerp(partner.ellipse.center, self.doorification)
     }
 
-    pub fn animate(&mut self, position: Vec3, rotation: (f32, f32, f32), flipped: bool) {
-        self.update_transform(position, rotation, flipped);
+    pub fn rotation(&self) -> (f32, f32, f32) {
+        let partner = self.partner();
+        (
+            (1.0 - self.doorification) * self.ellipse.rots.0
+                + self.doorification * partner.ellipse.rots.0,
+            (1.0 - self.doorification) * self.ellipse.rots.1
+                + self.doorification * partner.ellipse.rots.1,
+            (1.0 - self.doorification) * self.ellipse.rots.2
+                + self.doorification * partner.ellipse.rots.2,
+        )
+    }
+
+    fn doorify(&mut self, t: f32, flipped: bool) {
+        self.doorification = t;
+
+        let new_position = self.position();
+        let new_rotation = self.rotation();
+
+        self.set_transform(new_position, new_rotation, flipped);
+    }
+
+    pub fn ellipse(&self) -> Ellipse {
+        let mut ellipse = self.ellipse;
+
+        ellipse.center = self.position();
+        ellipse.rots = self.rotation();
+
+        ellipse
     }
 
     pub fn normal(&self) -> Vec3 {
@@ -118,40 +192,57 @@ impl Default for PortalRaw {
 impl From<Portal> for PortalRaw {
     fn from(portal: Portal) -> Self {
         Self {
-            ellipse: portal.ellipse.into(),
+            ellipse: portal.ellipse().into(),
             transformation_matrix: portal.transformation_matrix.to_cols_array(),
             inverse_transformation_matrix: portal.inverse_transformation_matrix.to_cols_array(),
         }
     }
 }
 
-#[derive(Default, Debug, Clone, Copy)]
+impl From<&Portal> for PortalRaw {
+    fn from(portal: &Portal) -> Self {
+        Self {
+            ellipse: portal.ellipse().into(),
+            transformation_matrix: portal.transformation_matrix.to_cols_array(),
+            inverse_transformation_matrix: portal.inverse_transformation_matrix.to_cols_array(),
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct PortalPair {
-    pub portal_a: Portal,
-    pub portal_b: Portal,
+    pub portal_a: Box<Portal>,
+    pub portal_b: Box<Portal>,
+    pub doorification: f32,
 }
 
 impl PortalPair {
     pub fn new(portal_a: Portal, portal_b: Portal) -> Self {
-        Self { portal_a, portal_b }
+        let mut portal_a = Box::new(portal_a);
+        let mut portal_b = Box::new(portal_b);
+
+        let portal_a_ptr: *const Portal = &*portal_a;
+        let portal_b_ptr: *const Portal = &*portal_b;
+
+        portal_a.set_partner_ptr(portal_b_ptr);
+        portal_b.set_partner_ptr(portal_a_ptr);
+
+        Self {
+            portal_a,
+            portal_b,
+            doorification: 0.0,
+        }
     }
 
     pub fn from_ellipses(ellipse_a: Ellipse, ellipse_b: Ellipse) -> Self {
         let portal_a = Portal::from_ellipse(ellipse_a, true);
         let portal_b = Portal::from_ellipse(ellipse_b, false);
 
-        Self { portal_a, portal_b }
+        Self::new(portal_a, portal_b)
     }
 
-    pub fn animate_both(
-        &mut self,
-        pos_a: Vec3,
-        rot_a: (f32, f32, f32),
-        pos_b: Vec3,
-        rot_b: (f32, f32, f32),
-    ) {
-        self.portal_a.animate(pos_a, rot_a, true);
-        self.portal_b.animate(pos_b, rot_b, false);
+    pub fn doorify_a_to_b(&mut self) {
+        self.portal_a.doorify(self.doorification, true);
     }
 }
 
@@ -162,11 +253,11 @@ pub struct PortalPairRaw {
     pub portal_b: PortalRaw,
 }
 
-impl From<PortalPair> for PortalPairRaw {
-    fn from(portal_pair: PortalPair) -> Self {
+impl From<&PortalPair> for PortalPairRaw {
+    fn from(portal_pair: &PortalPair) -> Self {
         Self {
-            portal_a: portal_pair.portal_a.into(),
-            portal_b: portal_pair.portal_b.into(),
+            portal_a: portal_pair.portal_a.as_ref().into(),
+            portal_b: portal_pair.portal_b.as_ref().into(),
         }
     }
 }
