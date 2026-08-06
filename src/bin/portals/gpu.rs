@@ -13,9 +13,9 @@ pub struct Uniform {
     time: f32,
     scene_id: u32,
     camera_pos: [f32; 3],
-    _padding2: f32,
-    camera_dir: [f32; 3],
     fov: f32,
+    camera_dir: [f32; 3],
+    _padding: f32,
 }
 
 impl Uniform {
@@ -28,9 +28,9 @@ impl Uniform {
             time,
             scene_id: current_scene as u32,
             camera_pos,
-            _padding2: 0.0,
-            camera_dir,
             fov: camera.fov_multiplier,
+            camera_dir,
+            _padding: 0.0,
         }
     }
 }

@@ -1,7 +1,7 @@
 use nannou::prelude::*;
 
 use crate::{
-    Camera, Model,
+    Model,
     scene::{
         SceneData,
         portal::Portal,
@@ -10,14 +10,46 @@ use crate::{
     util::WORLD_UP,
 };
 
-pub struct DebugRay {
-    pub segments: Vec<RaySegment>,
+pub struct DebugRayEmitter {
+    origin: Vec3,
+    directions: (Vec3, Vec3, Vec3), // (forward, right, up)
 }
 
-pub struct RaySegment {
+impl DebugRayEmitter {
+    pub fn new(origin: Vec3, directions: (Vec3, Vec3, Vec3)) -> Self {
+        Self { origin, directions }
+    }
+}
+
+struct DebugRay {
+    pub segments: Vec<Segment>,
+}
+
+pub struct Segment {
     pub start: Vec3,
     pub end: Vec3,
     pub color: [f32; 3],
+    pub weight: f32,
+}
+
+impl Segment {
+    pub fn new(start: Vec3, end: Vec3, color: [f32; 3], weight: f32) -> Self {
+        Self {
+            start,
+            end,
+            color,
+            weight,
+        }
+    }
+
+    pub fn new_with_bounce(start: Vec3, end: Vec3, bounce: u32) -> Self {
+        Self {
+            start,
+            end,
+            color: bounce_color(bounce),
+            weight: 3.0,
+        }
+    }
 }
 
 struct HitInfoCpu {
@@ -28,260 +60,27 @@ struct HitInfoCpu {
     color: [f32; 3],
 }
 
-impl Model {
-    pub fn shoot_debug_ray(&mut self) {
-        let camera = &self.camera;
-
-        let camera_forward = camera.forward();
-        let camera_right = camera_forward.cross(WORLD_UP).normalize();
-        let camera_up = camera_right.cross(camera_forward);
-
-        let mut debug_rays = vec![];
-
-        let m = 0.2;
-        let res_x = 8;
-        let res_y = 8;
-
-        for x in 0..res_x {
-            for y in 0..res_y {
-                let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
-                let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
-
-                let ray_direction = (camera_forward
-                    + uv_x * camera_right * camera.fov_multiplier
-                    + uv_y * camera_up * camera.fov_multiplier)
-                    .normalize();
-
-                let debug_ray = trace_debug_ray(
-                    &self.scenes[self.current_scene].data,
-                    camera.position,
-                    ray_direction,
-                    10,
-                );
-
-                debug_rays.push(debug_ray);
-            }
-        }
-
-        self.debug_rays.append(&mut debug_rays);
-    }
-
-    pub fn draw_debug_ray(&self, draw: &Draw, screen_size: Vec2) {
-        for ray in self.debug_rays.iter() {
-            for segment in &ray.segments {
-                // Try to get screen positions for both points
-                let start_2d = self.camera.world_to_screen(segment.start, screen_size);
-                let end_2d = self.camera.world_to_screen(segment.end, screen_size);
-
-                // Handle different visibility cases
-                match (start_2d, end_2d) {
-                    // Both points visible - draw normally
-                    (Some(start), Some(end)) => {
-                        draw.line()
-                            .start(pt2(start.x, start.y))
-                            .end(pt2(end.x, end.y))
-                            .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                            .weight(3.0);
-                    }
-                    // Only start visible - clip to screen edge
-                    (Some(start), None) => {
-                        if let Some(clipped_end) = Camera::clip_ray_to_screen(
-                            segment.start,
-                            segment.end,
-                            &self.camera,
-                            screen_size,
-                        ) {
-                            draw.line()
-                                .start(pt2(start.x, start.y))
-                                .end(pt2(clipped_end.x, clipped_end.y))
-                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                                .weight(3.0);
-                        }
-                    }
-                    // Only end visible - clip from screen edge
-                    (None, Some(end)) => {
-                        if let Some(clipped_start) = Camera::clip_ray_to_screen(
-                            segment.end,
-                            segment.start,
-                            &self.camera,
-                            screen_size,
-                        ) {
-                            draw.line()
-                                .start(pt2(clipped_start.x, clipped_start.y))
-                                .end(pt2(end.x, end.y))
-                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                                .weight(3.0);
-                        }
-                    }
-                    // Neither visible - try to find screen intersection
-                    (None, None) => {
-                        if let Some((clipped_start, clipped_end)) =
-                            Camera::clip_line_segment_to_screen(
-                                segment.start,
-                                segment.end,
-                                &self.camera,
-                                screen_size,
-                            )
-                        {
-                            draw.line()
-                                .start(pt2(clipped_start.x, clipped_start.y))
-                                .end(pt2(clipped_end.x, clipped_end.y))
-                                .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
-                                .weight(3.0);
-                        }
-                    }
-                }
-            }
-
-            if let Some(first_segment) = ray.segments.first()
-                && let Some(origin_2d) = self
-                    .camera
-                    .world_to_screen(first_segment.start, screen_size)
-            {
-                draw.ellipse()
-                    .xy(pt2(origin_2d.x, origin_2d.y))
-                    .radius(5.0)
-                    .color(RED);
-            }
-        }
-    }
+enum PortalHitType<'a> {
+    Front(&'a Portal, &'a Portal),
+    Back,
+    None,
 }
 
-fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces: u32) -> DebugRay {
-    let mut segments = Vec::new();
-    let mut current_ray_origin = origin;
-    let mut current_ray_direction = direction;
-
-    for bounce in 0..max_bounces {
-        let hit_info = trace_ray_cpu(scene, current_ray_origin, current_ray_direction);
-
-        if !hit_info.hit {
-            segments.push(RaySegment {
-                start: current_ray_origin,
-                end: current_ray_origin + current_ray_direction * 20.0,
-                color: if bounce == 0 {
-                    [1.0, 1.0, 0.0]
-                } else {
-                    [0.0, 1.0, 1.0]
-                },
-            });
-            break;
-        }
-
-        let mut hit_portal = false;
-        for i in 0..scene.portal_pair_count {
-            let portal_pair = &scene.portal_pairs[i as usize];
-
-            for (in_portal, out_portal) in [
-                (&portal_pair.portal_a, &portal_pair.portal_b),
-                (&portal_pair.portal_b, &portal_pair.portal_a),
-            ] {
-                let portal_t = ray_ellipse_intersect_cpu(
-                    current_ray_origin,
-                    current_ray_direction,
-                    in_portal.ellipse,
-                );
-
-                if portal_t > 0.001 && portal_t <= hit_info.t + 0.001 {
-                    let portal_normal = in_portal.normal();
-
-                    if current_ray_direction.dot(portal_normal) < 0.0 {
-                        let portal_hit_point =
-                            current_ray_origin + portal_t * current_ray_direction;
-
-                        segments.push(RaySegment {
-                            start: current_ray_origin,
-                            end: portal_hit_point,
-                            color: if bounce == 0 {
-                                [1.0, 1.0, 0.0]
-                            } else {
-                                [0.0, 1.0, 1.0]
-                            },
-                        });
-
-                        let transformed_point =
-                            transform_point_through_portal(portal_hit_point, in_portal, out_portal);
-                        let transformed_direction = transform_direction_through_portal(
-                            current_ray_direction,
-                            in_portal,
-                            out_portal,
-                        );
-
-                        current_ray_origin = transformed_point;
-                        current_ray_direction = transformed_direction;
-                        hit_portal = true;
-                        break;
-                    }
-                }
-            }
-
-            if hit_portal {
-                break;
-            }
-        }
-
-        if !hit_portal {
-            segments.push(RaySegment {
-                start: current_ray_origin,
-                end: hit_info.point,
-                color: if bounce == 0 {
-                    [1.0, 1.0, 0.0]
-                } else {
-                    [0.0, 1.0, 1.0]
-                },
-            });
-            break;
-        }
-    }
-
-    DebugRay { segments }
-}
-
-fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> HitInfoCpu {
-    let mut hit_info = HitInfoCpu {
-        hit: false,
-        t: 1000.0,
-        point: Vec3::ZERO,
-        normal: Vec3::ZERO,
-        color: [0.0; 3],
-    };
-
-    for i in 0..scene.plane_count {
-        let plane = &scene.planes[i as usize];
-        let t = ray_plane_intersect_cpu(ray_origin, ray_direction, *plane);
-
-        if t > 0.001 && t < hit_info.t {
-            hit_info.hit = true;
-            hit_info.t = t;
-            hit_info.point = ray_origin + t * ray_direction;
-            hit_info.normal = plane.normal();
-            hit_info.color = plane.color.into_components().into();
-        }
-    }
-
-    for i in 0..scene.ellipse_count {
-        let ellipse = &scene.ellipses[i as usize];
-        let t = ray_ellipse_intersect_cpu(ray_origin, ray_direction, *ellipse);
-
-        if t > 0.001 && t < hit_info.t {
-            hit_info.hit = true;
-            hit_info.t = t;
-            hit_info.point = ray_origin + t * ray_direction;
-            hit_info.normal = ellipse.normal();
-            hit_info.color = ellipse.color.into_components().into();
-        }
-    }
-
-    hit_info
-}
-
-fn ray_plane_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, plane: Plane) -> f32 {
+fn ray_plane_intersect_cpu(
+    ray_origin: Vec3,
+    ray_direction: Vec3,
+    plane: Plane,
+    one_way: bool,
+) -> f32 {
     let plane_point = plane.point;
     let plane_normal = plane.normal();
 
     let denom = plane_normal.dot(ray_direction);
     if denom.abs() < 1e-6 {
         return -1.0;
+    }
+    if one_way && denom > 0.0 {
+        return -1.0; // Ray hit the back side of the plane
     }
 
     let t = (plane_point - ray_origin).dot(plane_normal) / denom;
@@ -347,6 +146,253 @@ fn ray_ellipse_intersect_cpu(ray_origin: Vec3, ray_direction: Vec3, ellipse: Ell
     t
 }
 
+fn trace_ray_cpu(scene: &SceneData, ray_origin: Vec3, ray_direction: Vec3) -> HitInfoCpu {
+    let mut hit_info = HitInfoCpu {
+        hit: false,
+        t: 1000.0,
+        point: Vec3::ZERO,
+        normal: Vec3::ZERO,
+        color: [0.0; 3],
+    };
+
+    for plane in scene.planes.iter() {
+        let t = ray_plane_intersect_cpu(ray_origin, ray_direction, *plane, false);
+
+        if t > 0.001 && t < hit_info.t {
+            hit_info.hit = true;
+            hit_info.t = t;
+            hit_info.point = ray_origin + t * ray_direction;
+            hit_info.normal = plane.normal();
+            hit_info.color = plane.color.into_components().into();
+        }
+    }
+
+    for ellipse in scene.ellipses.iter() {
+        let t = ray_ellipse_intersect_cpu(ray_origin, ray_direction, *ellipse);
+
+        if t > 0.001 && t < hit_info.t {
+            hit_info.hit = true;
+            hit_info.t = t;
+            hit_info.point = ray_origin + t * ray_direction;
+            hit_info.normal = ellipse.normal();
+            hit_info.color = ellipse.color.into_components().into();
+        }
+    }
+
+    for cube in scene.cubes.iter() {
+        for face in cube.planes() {
+            let t = ray_plane_intersect_cpu(ray_origin, ray_direction, face, true);
+
+            if t > 0.001 && t < hit_info.t {
+                hit_info.hit = true;
+                hit_info.t = t;
+                hit_info.point = ray_origin + t * ray_direction;
+                hit_info.normal = face.normal();
+                hit_info.color = face.color.into_components().into();
+            }
+        }
+    }
+
+    hit_info
+}
+
+fn transform_point_through_portal(point: Vec3, in_portal: &Portal, out_portal: &Portal) -> Vec3 {
+    let in_mat = in_portal.inverse_transformation_matrix;
+    let out_mat = out_portal.transformation_matrix;
+
+    out_mat.project_point3(in_mat.project_point3(point))
+}
+
+fn transform_direction_through_portal(
+    direction: Vec3,
+    in_portal: &Portal,
+    out_portal: &Portal,
+) -> Vec3 {
+    let in_mat = in_portal.inverse_transformation_matrix;
+    let out_mat = out_portal.transformation_matrix;
+
+    let mut base_direction = in_mat.transform_vector3(direction);
+    base_direction.y = -base_direction.y;
+
+    out_mat.transform_vector3(base_direction).normalize()
+}
+
+fn bounce_color(bounce_count: u32) -> [f32; 3] {
+    match bounce_count {
+        // Thanks copilot
+        0 => [1.0, 1.0, 0.0], // Yellow for the first segment
+        1 => [0.0, 1.0, 0.0], // Green for the second segment
+        2 => [0.0, 0.0, 1.0], // Blue for the third segment
+        3 => [1.0, 0.0, 1.0], // Magenta for the fourth segment
+        4 => [1.0, 0.5, 0.0], // Orange for the fifth segment
+        _ => [0.0, 1.0, 1.0], // Cyan for subsequent segments
+    }
+}
+
+fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces: u32) -> DebugRay {
+    let mut segments = Vec::new();
+    let mut curr_ray_origin = origin;
+    let mut curr_ray_direction = direction;
+
+    for bounce in 0..max_bounces {
+        // Trace the ray through the scene
+        let hit_info = trace_ray_cpu(scene, curr_ray_origin, curr_ray_direction);
+
+        // Check for portal intersections
+        let mut closest_portal_t = hit_info.t;
+        let mut portal_hit_type = PortalHitType::None;
+
+        // Check all portal pairs for intersections, to find the closest portal hit, if any
+        for i in 0..scene.portal_pair_count {
+            let portal_pair = &scene.portal_pairs[i as usize];
+
+            let p_a = &portal_pair.portal_a;
+            let p_b = &portal_pair.portal_b;
+
+            // Check portal A
+            let t_a = ray_ellipse_intersect_cpu(curr_ray_origin, curr_ray_direction, p_a.ellipse());
+            if t_a > 0.001 && t_a < closest_portal_t {
+                closest_portal_t = t_a;
+
+                portal_hit_type = if curr_ray_direction.dot(p_a.normal()) < 0.0 {
+                    PortalHitType::Front(p_a, p_b)
+                } else {
+                    PortalHitType::Back
+                };
+            }
+
+            // Check portal B
+            let t_b = ray_ellipse_intersect_cpu(curr_ray_origin, curr_ray_direction, p_b.ellipse());
+            if t_b > 0.001 && t_b < closest_portal_t {
+                closest_portal_t = t_b;
+
+                portal_hit_type = if curr_ray_direction.dot(p_b.normal()) < 0.0 {
+                    PortalHitType::Front(p_b, p_a)
+                } else {
+                    PortalHitType::Back
+                };
+            }
+        }
+
+        match portal_hit_type {
+            // Hit the front side of a portal; draw the segment to the hit point, teleport the ray, and continue bouncing
+            PortalHitType::Front(portal_a, portal_b) => {
+                let portal_hit_point = curr_ray_origin + closest_portal_t * curr_ray_direction;
+                segments.push(Segment::new_with_bounce(
+                    curr_ray_origin,
+                    portal_hit_point,
+                    bounce,
+                ));
+
+                curr_ray_origin =
+                    transform_point_through_portal(portal_hit_point, portal_a, portal_b);
+                curr_ray_direction =
+                    transform_direction_through_portal(curr_ray_direction, portal_a, portal_b);
+            }
+
+            // Hit the back side of a portal; draw the segment to the hit point and break the bounce loop
+            PortalHitType::Back => {
+                let portal_hit_point = curr_ray_origin + closest_portal_t * curr_ray_direction;
+                segments.push(Segment::new_with_bounce(
+                    curr_ray_origin,
+                    portal_hit_point,
+                    bounce,
+                ));
+                break;
+            }
+
+            // No portal hit; draw the segment to the scene hit point and break the bounce loop
+            PortalHitType::None => {
+                if hit_info.hit {
+                    segments.push(Segment::new_with_bounce(
+                        curr_ray_origin,
+                        hit_info.point,
+                        bounce,
+                    ));
+                } else {
+                    segments.push(Segment::new_with_bounce(
+                        curr_ray_origin,
+                        curr_ray_origin + 20.0 * curr_ray_direction,
+                        bounce,
+                    ));
+                }
+                break;
+            }
+        }
+    }
+
+    DebugRay { segments }
+}
+
+impl Model {
+    pub fn add_debug_ray_emitter(&mut self) {
+        let camera = &self.camera;
+        let ray_emitter = DebugRayEmitter::new(camera.position, camera.directions());
+        self.debug_ray_emitters.push(ray_emitter);
+    }
+
+    pub fn draw_debug_ray(&self, draw: &Draw, screen_size: Vec2) {
+        let mut debug_rays = Vec::new();
+
+        // Shoots a single ray directly forward from the camera
+        for emitter in self.debug_ray_emitters.iter() {
+            let ray_direction = emitter.directions.0;
+            let debug_ray = trace_debug_ray(
+                &self.scenes[self.current_scene].data,
+                emitter.origin,
+                ray_direction,
+                10,
+            );
+            debug_rays.push(debug_ray);
+        }
+
+        // Shoots a spread of rays
+        // let m = 0.2;
+        // let res_x = 1;
+        // let res_y = 3;
+
+        // for emitter in self.debug_ray_emitters.iter() {
+        //     let (forward, right, up) = emitter.directions;
+
+        //     for x in 0..res_x {
+        //         for y in 0..res_y {
+        //             let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
+        //             let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
+
+        //             let ray_direction = (forward + uv_x * right + uv_y * up).normalize();
+
+        //             let debug_ray = trace_debug_ray(
+        //                 &self.scenes[self.current_scene].data,
+        //                 emitter.origin,
+        //                 ray_direction,
+        //                 10,
+        //             );
+
+        //             debug_rays.push(debug_ray);
+        //         }
+        //     }
+        // }
+
+        for ray in debug_rays.iter() {
+            for segment in &ray.segments {
+                self.camera.draw_segment(draw, segment, screen_size);
+            }
+
+            // Draw the origin of the ray
+            if let Some(first_segment) = ray.segments.first()
+                && let Some(origin_2d) = self
+                    .camera
+                    .world_to_screen(first_segment.start, screen_size)
+            {
+                draw.ellipse()
+                    .xy(pt2(origin_2d.x, origin_2d.y))
+                    .radius(5.0)
+                    .color(RED);
+            }
+        }
+    }
+}
+
 pub fn check_camera_portal_teleport(
     scene: &SceneData,
     old_pos: Vec3,
@@ -355,9 +401,9 @@ pub fn check_camera_portal_teleport(
     let movement_vec = new_pos - old_pos;
     let movement_length = movement_vec.length();
 
-    if movement_length < 0.001 {
-        return None;
-    }
+    // if movement_length < 0.001 {
+    //     return None;
+    // }
 
     let ray_direction = movement_vec / movement_length;
 
@@ -395,7 +441,7 @@ fn check_single_portal_teleport(
     in_portal: &Portal,
     out_portal: &Portal,
 ) -> Option<Vec3> {
-    let ellipse = in_portal.ellipse;
+    let ellipse = in_portal.ellipse();
 
     let t = ray_ellipse_intersect_cpu(ray_origin, ray_direction, ellipse);
 
@@ -415,24 +461,4 @@ fn check_single_portal_teleport(
     }
 
     None
-}
-
-fn transform_point_through_portal(point: Vec3, in_portal: &Portal, out_portal: &Portal) -> Vec3 {
-    let in_transform = in_portal.inverse_transformation_matrix;
-    let out_transform = out_portal.transformation_matrix;
-
-    let local_point = in_transform.transform_point3(point);
-    out_transform.transform_point3(local_point)
-}
-
-fn transform_direction_through_portal(
-    direction: Vec3,
-    in_portal: &Portal,
-    out_portal: &Portal,
-) -> Vec3 {
-    let in_transform = in_portal.inverse_transformation_matrix;
-    let out_transform = out_portal.transformation_matrix;
-
-    let local_direction = in_transform.transform_vector3(direction);
-    out_transform.transform_vector3(local_direction).normalize()
 }

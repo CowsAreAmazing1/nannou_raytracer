@@ -7,6 +7,7 @@ use bytemuck::{Pod, Zeroable};
 use crate::scene::{
     portal::{PortalPair, PortalPairRaw},
     primitive::{
+        cube::{Cube, CubeRaw},
         ellipse::{Ellipse, EllipseRaw},
         plane::{Plane, PlaneRaw},
     },
@@ -15,15 +16,18 @@ use crate::scene::{
 const MAX_PLANES: usize = 10;
 const MAX_ELLIPSES: usize = 4;
 const MAX_PORTAL_PAIRS: usize = 4;
+const MAX_CUBES: usize = 4;
 
 #[derive(Default)]
 pub struct SceneData {
     pub plane_count: u32,
     pub ellipse_count: u32,
     pub portal_pair_count: u32,
+    pub cube_count: u32,
     pub planes: Vec<Plane>,
     pub ellipses: Vec<Ellipse>,
     pub portal_pairs: Vec<PortalPair>,
+    pub cubes: Vec<Cube>,
 }
 
 pub struct Scene {
@@ -66,24 +70,40 @@ impl Scene {
         }
     }
 
+    pub fn add_cube(&mut self, cube: Cube) {
+        if self.data.cube_count < MAX_CUBES as u32 {
+            self.data.cubes.push(cube);
+            self.data.cube_count += 1;
+        } else {
+            println!("Max cube count reached: {}", MAX_CUBES);
+        }
+    }
+
     pub fn to_raw(&self) -> SceneDataRaw {
         let mut planes = [PlaneRaw::default(); MAX_PLANES];
         let mut ellipses = [EllipseRaw::default(); MAX_ELLIPSES];
         let mut portal_pairs = [PortalPairRaw::default(); MAX_PORTAL_PAIRS];
+        let mut cubes = [CubeRaw::default(); MAX_CUBES];
 
         for (i, plane) in self.data.planes.iter().enumerate() {
             if i < MAX_PLANES {
-                planes[i] = (*plane).into();
+                planes[i] = plane.into();
             }
         }
         for (i, ellipse) in self.data.ellipses.iter().enumerate() {
             if i < MAX_ELLIPSES {
-                ellipses[i] = (*ellipse).into();
+                ellipses[i] = ellipse.into();
             }
         }
         for (i, portal_pair) in self.data.portal_pairs.iter().enumerate() {
             if i < MAX_PORTAL_PAIRS {
-                portal_pairs[i] = (*portal_pair).into();
+                // Maybe not the best?
+                portal_pairs[i] = portal_pair.into();
+            }
+        }
+        for (i, cube) in self.data.cubes.iter().enumerate() {
+            if i < MAX_CUBES {
+                cubes[i] = cube.into();
             }
         }
 
@@ -91,10 +111,11 @@ impl Scene {
             plane_count: self.data.plane_count,
             ellipse_count: self.data.ellipse_count,
             portal_pair_count: self.data.portal_pair_count,
-            _padding1: 0,
+            cube_count: self.data.cube_count,
             planes,
             ellipses,
             portal_pairs,
+            cubes,
         }
     }
 }
@@ -105,8 +126,9 @@ pub struct SceneDataRaw {
     pub plane_count: u32,
     pub ellipse_count: u32,
     pub portal_pair_count: u32,
-    _padding1: u32,
+    pub cube_count: u32,
     pub planes: [PlaneRaw; MAX_PLANES],
     pub ellipses: [EllipseRaw; MAX_ELLIPSES],
     pub portal_pairs: [PortalPairRaw; MAX_PORTAL_PAIRS],
+    pub cubes: [CubeRaw; MAX_CUBES],
 }

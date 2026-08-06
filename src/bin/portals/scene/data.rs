@@ -1,12 +1,15 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
-use nannou::glam::{Quat, Vec3, vec3};
+use nannou::{
+    color::*,
+    glam::{Quat, Vec3, vec3},
+};
 
 use crate::{
     scene::{
         Scene,
         portal::{Portal, PortalPair},
-        primitive::{ellipse::Ellipse, plane::Plane},
+        primitive::{cube::Cube, ellipse::Ellipse, plane::Plane},
     },
     util::quat_to,
 };
@@ -19,39 +22,90 @@ pub fn create_scenes() -> Vec<Scene> {
     let rim_thickness = 0.2;
 
     {
-        // Scene 1: Simple primitive example
-        let mut scene = Scene::new("Ellipse Pair");
+        let mut scene = Scene::new("test");
 
-        scene.add_plane(Plane::new(
-            Vec3::ZERO,
-            Quat::from_rotation_z(0.01),
+        scene.add_cube(Cube::new(
+            vec3(2.0, 1.0, 1.0),
+            0.5,
             (0.086275, 0.5098, 0.17255),
         ));
 
-        scene.add_plane(Plane::new(
-            Vec3::ZERO,
-            Quat::from_rotation_z(-0.01),
-            (0.4902, 0.035294, 0.19216),
+        scene.add_cube(Cube::new(Vec3::ZERO, 0.2, WHITE.into_format()));
+
+        scene.add_portal_pair(PortalPair::from_ellipses(
+            Ellipse::new(
+                vec3(2.0, 0.0, 0.0),
+                (0.0, FRAC_PI_2, FRAC_PI_2),
+                0.6,
+                1.0,
+                0.1,
+                ORANGERED.into_format(),
+                BLACK.into_format(),
+            ),
+            Ellipse::new(
+                vec3(-2.0, 0.0, 0.0),
+                (0.0, PI, FRAC_PI_2),
+                0.6,
+                1.0,
+                0.1,
+                BLUEVIOLET.into_format(),
+                BLACK.into_format(),
+            ),
         ));
 
+        scenes.push(scene);
+    }
+
+    {
+        let mut scene = Scene::new("Primitives");
+
         scene.add_ellipse(Ellipse::new(
-            vec3(-1.5, 1.7, -4.0),
-            quat_to(Vec3::Z),
+            vec3(3.0, 1.5, 0.0),
+            (0.0, 0.0, FRAC_PI_2),
             e_a,
             e_b,
             rim_thickness,
             (0.7, 0.4, 0.0),
             (0.0, 0.0, 0.0),
         ));
-
         scene.add_ellipse(Ellipse::new(
-            vec3(1.5, 1.7, -4.0),
-            quat_to(Vec3::Z),
+            vec3(-3.0, 1.5, 0.0),
+            (0.0, 0.0, FRAC_PI_2),
             e_a,
             e_b,
             rim_thickness,
             (0.0, 0.4, 0.7),
             (0.0, 0.0, 0.0),
+        ));
+
+        scene.add_plane(Plane::new_finite(
+            vec3(3.0, 0.0, 2.5),
+            Quat::IDENTITY,
+            (1.0, 0.2, 0.2),
+            5.0,
+            5.0,
+        ));
+        scene.add_plane(Plane::new_finite(
+            vec3(3.0, 0.0, -2.5),
+            Quat::IDENTITY,
+            (0.6, 0.6, 0.2),
+            5.0,
+            5.0,
+        ));
+
+        scene.add_plane(Plane::new_finite(
+            vec3(-3.0, 0.0, 2.5),
+            Quat::IDENTITY,
+            (0.2, 1.0, 0.2),
+            5.0,
+            5.0,
+        ));
+        scene.add_plane(Plane::new_finite(
+            vec3(-3.0, 0.0, -2.5),
+            Quat::IDENTITY,
+            (0.2, 0.2, 1.0),
+            5.0,
+            5.0,
         ));
 
         scenes.push(scene);
@@ -61,12 +115,13 @@ pub fn create_scenes() -> Vec<Scene> {
         // Scene 2: Same as 1 but with a pair of portals
         let mut scene = Scene::new("Single Portal Pair");
 
-        scene.add_plane(scenes[0].data.planes[0]);
-        scene.add_plane(scenes[0].data.planes[1]);
+        for plane in scenes[1].data.planes.iter() {
+            scene.add_plane(*plane);
+        }
 
-        scene.add_portal_pair(PortalPair::new(
-            Portal::from_ellipse(scenes[0].data.ellipses[0]),
-            Portal::from_ellipse(scenes[0].data.ellipses[1]),
+        scene.add_portal_pair(PortalPair::from_ellipses(
+            scenes[1].data.ellipses[0],
+            scenes[1].data.ellipses[1],
         ));
 
         scenes.push(scene);
@@ -161,15 +216,17 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_portal_pair(PortalPair::new(
             Portal::new(
                 Vec3::new(-0.51 - 1.5, 0.0 + 1.0, 0.0 - 5.0),
-                quat_to(-Vec3::X),
+                (0.0, 0.0, FRAC_PI_2),
                 e_a,
                 e_b,
+                true,
             ),
             Portal::new(
                 Vec3::new(0.51 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
-                quat_to(Vec3::X),
+                (0.0, 0.0, -FRAC_PI_2),
                 e_a,
                 e_b,
+                false,
             ),
         ));
 
@@ -230,15 +287,17 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_portal_pair(PortalPair::new(
             Portal::new(
                 Vec3::new(-0.55, 0.0 + 1.0, 0.0 - 5.0),
-                quat_to(Vec3::X),
+                (0.0, 0.0, -FRAC_PI_2),
                 0.6,
                 1.0,
+                true,
             ),
             Portal::new(
                 Vec3::new(0.55, 0.0 + 1.0, 0.0 - 5.0),
-                quat_to(-Vec3::X) * Quat::from_rotation_x(0.0),
+                (0.0, 0.0, FRAC_PI_2),
                 0.6,
                 1.0,
+                false,
             ),
         ));
         // scene.add_portal_pair(PortalPair::new(
@@ -255,38 +314,6 @@ pub fn create_scenes() -> Vec<Scene> {
         //         1.0,
         //     ),
         // ));
-
-        scenes.push(scene);
-    }
-
-    {
-        let mut scene = Scene::new("Portal Animation Test");
-
-        scene.add_plane(Plane::new_finite(
-            [0.0, 0.0, -1.25],
-            Quat::IDENTITY,
-            (0.4, 0.1, 0.4),
-            2.5,
-            5.0,
-        ));
-
-        scene.add_plane(Plane::new_finite(
-            [0.0, 0.0, 1.25],
-            Quat::IDENTITY,
-            (0.1, 0.4, 0.4),
-            2.5,
-            5.0,
-        ));
-
-        scene.add_portal_pair(PortalPair::new(
-            Portal::new(
-                vec3(0.0, 1.0, 0.5),
-                quat_to(-Vec3::Z) * Quat::from_rotation_y(PI) * Quat::from_rotation_z(0.1),
-                0.7,
-                0.9,
-            ),
-            Portal::new(vec3(0.0, 1.0, -0.5), quat_to(Vec3::Z), 0.7, 0.9),
-        ));
 
         scenes.push(scene);
     }
@@ -311,13 +338,35 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
 
         scene.add_portal_pair(PortalPair::new(
-            Portal::new(
-                vec3(0.0, 1.0, 0.5),
-                quat_to(-Vec3::Z) * Quat::from_rotation_y(PI) * Quat::from_rotation_z(0.1),
-                0.7,
-                0.9,
+            Portal::new(vec3(1.5, 1.0, 1.5), (0.0, 0.0, FRAC_PI_2), 0.7, 0.9, true),
+            Portal::new(vec3(0.0, 1.0, 0.0), (0.0, PI, FRAC_PI_2), 0.7, 0.9, false),
+        ));
+
+        scenes.push(scene);
+    }
+
+    {
+        let mut scene = Scene::new("Empty");
+
+        scene.add_portal_pair(PortalPair::from_ellipses(
+            Ellipse::new(
+                vec3(2.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                e_a,
+                e_b,
+                0.1,
+                ORANGERED.into_format(),
+                BLACK.into_format(),
             ),
-            Portal::new(vec3(0.0, 1.0, -0.5), quat_to(Vec3::Z), 0.7, 0.9),
+            Ellipse::new(
+                vec3(-2.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                e_a,
+                e_b,
+                0.1,
+                BLUEVIOLET.into_format(),
+                BLACK.into_format(),
+            ),
         ));
 
         scenes.push(scene);

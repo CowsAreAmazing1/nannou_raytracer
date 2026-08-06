@@ -5,9 +5,9 @@ struct Uniforms {
     time: f32,
     scene_id: u32,
     camera_pos: vec3<f32>,
-    _padding2: f32,
-    camera_dir: vec3<f32>,
     fov: f32,
+    camera_dir: vec3<f32>,
+    _padding: f32,
 }
 
 struct Plane {
@@ -49,14 +49,19 @@ struct PortalPair {
     portal_b: Portal,
 }
 
+struct Cube {
+    planes: array<Plane, 6>,
+}
+
 struct SceneData {
     plane_count: u32,
     ellipse_count: u32,
     portal_pair_count: u32,
-    _padding1: u32,
+    cube_count: u32,
     planes: array<Plane, 10>,
     ellipses: array<Ellipse, 4>,
     portal_pairs: array<PortalPair, 4>,
+    cubes: array<Cube, 4>,
 }
 
 @group(0) @binding(0)
@@ -73,7 +78,7 @@ struct VertexOutput {
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var out: VertexOutput;
-    // Generate a full-screen triangle
+    // Generate a full-screen triangle ?? it actually is lol
     let x = f32((vertex_index << 1u) & 2u) * 2.0 - 1.0;
     let y = f32(vertex_index & 2u) * 2.0 - 1.0;
     out.position = vec4<f32>(x, y, 0.0, 1.0);
@@ -139,6 +144,91 @@ fn ray_plane_intersect(ray: Ray, plane: Plane) -> f32 {
     return t;
 }
 
+fn ray_plane_intersect_one_way(ray: Ray, plane: Plane) -> f32 {
+    if dot(ray.direction, plane.normal) > 0.0 {
+        return -1.0; // Ray is going away from the plane
+    }
+
+    let denom = dot(plane.normal, ray.direction);
+    if abs(denom) < 1e-6 {
+        return -1.0;
+    }
+    let t = dot(plane.point - ray.origin, plane.normal) / denom;
+    if t < 0.0 {
+        return -1.0;
+    }
+
+    // Check if plane is finite
+    if plane.is_infinite < 0.5 {
+        let hit_point = ray.origin + t * ray.direction;
+        let local_point = hit_point - plane.point;
+
+        // Create local coordinate system for the plane
+        let up = vec3<f32>(0.0, 1.0, 0.0);
+        var u_axis: vec3<f32>;
+        var v_axis: vec3<f32>;
+
+        if abs(dot(plane.normal, up)) < 0.9 {
+            u_axis = normalize(cross(plane.normal, up));
+        } else {
+            u_axis = normalize(cross(plane.normal, vec3<f32>(1.0, 0.0, 0.0)));
+        }
+        v_axis = cross(plane.normal, u_axis);
+
+        let u = dot(local_point, u_axis);
+        let v = dot(local_point, v_axis);
+
+        // Check bounds
+        if abs(u) > plane.width * 0.5 || abs(v) > plane.height * 0.5 {
+            return -1.0; // Outside bounds
+        }
+    }
+
+    return t;
+}
+
+fn add_checkerboard_pattern(ray: Ray, plane: Plane, t: f32, hit_info: ptr<function, HitInfo>, checker_scale: f32) {
+
+    if t > 0.001 && t < (*hit_info).t {
+        (*hit_info).hit = true;
+        (*hit_info).t = t;
+        (*hit_info).point = ray.origin + t * ray.direction;
+        (*hit_info).normal = plane.normal;
+        (*hit_info).color = plane.color;
+
+        // Create local coordinate system for the plane
+        let hit_point = (*hit_info).point;
+        let local_point = hit_point - plane.point;
+
+        let up = vec3<f32>(0.0, 1.0, 0.0);
+        var u_axis: vec3<f32>;
+        var v_axis: vec3<f32>;
+
+        if abs(dot(plane.normal, up)) < 0.9 {
+            u_axis = normalize(cross(plane.normal, up));
+        } else {
+            u_axis = normalize(cross(plane.normal, vec3<f32>(1.0, 0.0, 0.0)));
+        }
+        v_axis = cross(plane.normal, u_axis);
+
+        // Project hit point onto plane's local coordinates
+        let u = dot(local_point, u_axis);
+        let v = dot(local_point, v_axis);
+
+        // Apply checkerboard pattern using local coordinates
+        let checker_u = floor(u / checker_scale + 0.5);
+        let checker_v = floor(v / checker_scale + 0.5);
+        let sum = checker_u + checker_v;
+        let checker_pattern = abs(sum - 2.0 * floor(sum * 0.5));
+
+        if checker_pattern < 0.5 {
+            (*hit_info).color = plane.color;
+        } else {
+            (*hit_info).color = plane.color * 0.5; //  - vec3<f32>(0.25, 0.25, 0.25);
+        }
+    }
+}
+
 fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
     // First, intersect with the plane containing the ellipse
     let plane = Plane(ellipse.center, 0.0, ellipse.normal, 0.0, ellipse.color, 0.0, 0.0, 0.0, 1.0, 0.0);
@@ -175,10 +265,10 @@ fn ray_ellipse_intersect(ray: Ray, ellipse: Ellipse) -> f32 {
                      (v * v) / (ellipse.radius_b * ellipse.radius_b);
 
     if outer_test > 1.0 {
-        return -1.0; // Outside outer ellipse
+        return -1.0;
     }
 
-    return t; // Valid intersection with the ring
+    return t;
 }
 
 fn get_ellipse_color(ellipse: Ellipse, hit_point: vec3<f32>) -> vec3<f32> {
@@ -226,11 +316,16 @@ fn ray_portal_intersect(ray: Ray, portal: Portal) -> f32 {
 fn portal_ray(ray: Ray, hit_t: f32, in_portal: Portal, out_portal: Portal) -> Ray {
     let world_hit_point = ray.origin + hit_t * ray.direction;
 
-    let portal_hit_point = transform_point(world_hit_point, in_portal.inverse_transform_matrix);
-    let portal_direction = transform_direction(ray.direction, in_portal.inverse_transform_matrix);
+    // Intersection point
+    let base_hit_point = transform_point(world_hit_point, in_portal.inverse_transform_matrix);
+    let new_world_origin = transform_point(base_hit_point, out_portal.transform_matrix);
 
-    let new_world_origin = transform_point(portal_hit_point, out_portal.transform_matrix);
-    let new_world_direction = transform_direction(portal_direction, out_portal.transform_matrix);
+    // Outgoing direction vector
+    let base_direction = transform_direction(ray.direction, in_portal.inverse_transform_matrix);
+
+    let flipped_base_direction = vec3<f32>(base_direction.x, -base_direction.y, base_direction.z);
+
+    var new_world_direction = normalize(transform_direction(flipped_base_direction, out_portal.transform_matrix));
 
     return Ray(new_world_origin, new_world_direction);
 }
@@ -254,6 +349,7 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
     final_hit_info.multiplier = 1.0;
 
     for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
+        // Send ray through the scene, ignoring portals
         let hit_info = trace_ray_single_bounce(current_ray);
 
         // Check for portal intersections
@@ -288,7 +384,8 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
         if has_hit_portal {
             let portal_hit_point = current_ray.origin + closest_portal_t * current_ray.direction;
 
-            // Check if ray is entering portal (going against the normal)
+            // Check if ray is entering portal from the front face.
+            // The portal normal points away from the front, so front-face entry has a negative dot.
             if dot(current_ray.direction, in_portal.ellipse.normal) < 0.0 {
 
                 // Ray is entering portal - transform it
@@ -323,6 +420,7 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
     return final_hit_info;
 }
 
+/// Main single-bounce ray tracing function that checks intersections with the scene
 fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
     var hit_info: HitInfo;
     hit_info.hit = false;
@@ -333,45 +431,7 @@ fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
         let plane = scene.planes[i];
         let t = ray_plane_intersect(ray, plane);
 
-        if t > 0.001 && t < hit_info.t {
-            hit_info.hit = true;
-            hit_info.t = t;
-            hit_info.point = ray.origin + t * ray.direction;
-            hit_info.normal = plane.normal;
-            hit_info.color = plane.color;
-
-            // Create local coordinate system for the plane
-            let hit_point = hit_info.point;
-            let local_point = hit_point - plane.point;
-
-            let up = vec3<f32>(0.0, 1.0, 0.0);
-            var u_axis: vec3<f32>;
-            var v_axis: vec3<f32>;
-
-            if abs(dot(plane.normal, up)) < 0.9 {
-                u_axis = normalize(cross(plane.normal, up));
-            } else {
-                u_axis = normalize(cross(plane.normal, vec3<f32>(1.0, 0.0, 0.0)));
-            }
-            v_axis = cross(plane.normal, u_axis);
-
-            // Project hit point onto plane's local coordinates
-            let u = dot(local_point, u_axis);
-            let v = dot(local_point, v_axis);
-
-            // Apply checkerboard pattern using local coordinates
-            let checker_scale = 0.5;
-            let checker_u = floor(u / checker_scale + 0.5);
-            let checker_v = floor(v / checker_scale + 0.5);
-            let sum = checker_u + checker_v;
-            let checker_pattern = abs(sum - 2.0 * floor(sum * 0.5));
-
-            if checker_pattern < 0.5 {
-                hit_info.color = plane.color;
-            } else {
-                hit_info.color = plane.color * 0.5; //  - vec3<f32>(0.25, 0.25, 0.25);
-            }
-        }
+        add_checkerboard_pattern(ray, plane, t, &hit_info, 0.5);
     }
 
     for (var i: u32 = 0u; i < scene.ellipse_count; i++) {
@@ -387,10 +447,46 @@ fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
         }
     }
 
+    for (var i: u32 = 0u; i < scene.cube_count; i++) {
+        let cube = scene.cubes[i];
+
+        let plane1 = cube.planes[0];
+        let t1 = ray_plane_intersect_one_way(ray, plane1);
+        add_checkerboard_pattern(ray, plane1, t1, &hit_info, 0.25);
+
+        let plane2 = cube.planes[1];
+        let t2 = ray_plane_intersect_one_way(ray, plane2);
+        add_checkerboard_pattern(ray, plane2, t2, &hit_info, 0.25);
+
+        let plane3 = cube.planes[2];
+        let t3 = ray_plane_intersect_one_way(ray, plane3);
+        add_checkerboard_pattern(ray, plane3, t3, &hit_info, 0.25);
+
+        let plane4 = cube.planes[3];
+        let t4 = ray_plane_intersect_one_way(ray, plane4);
+        add_checkerboard_pattern(ray, plane4, t4, &hit_info, 0.25);
+
+        let plane5 = cube.planes[4];
+        let t5 = ray_plane_intersect_one_way(ray, plane5);
+        add_checkerboard_pattern(ray, plane5, t5, &hit_info, 0.25);
+
+        let plane6 = cube.planes[5];
+        let t6 = ray_plane_intersect_one_way(ray, plane6);
+        add_checkerboard_pattern(ray, plane6, t6, &hit_info, 0.25);
+
+        /// Doesnt work cause `array` cant be indexed with a variable ??
+        // for (var j: u32 = 0u; j < 6u; j++) {
+        //     let plane = cube.planes[j];
+        //     let t = ray_plane_intersect(ray, plane);
+
+        //     add_checkerboard_pattern(ray, plane, t, &hit_info);
+        // }
+    }
+
     return hit_info;
 }
 
-// Calculate reflection direction
+// Calculate reflection direction of an `incident` ray bouncing off a surface with normal `normal`
 fn reflect(incident: vec3<f32>, normal: vec3<f32>) -> vec3<f32> {
     return incident - 2.0 * dot(incident, normal) * normal;
 }
@@ -413,8 +509,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Calculate ray direction
     let ray_direction = normalize(
         camera_forward +
-        uv.x * camera_right * uniforms.fov +
-        uv.y * camera_up * uniforms.fov
+        uv.x * camera_right * atan(uniforms.fov) +
+        uv.y * camera_up * atan(uniforms.fov)
     );
 
     let primary_ray = Ray(ray_origin, ray_direction);

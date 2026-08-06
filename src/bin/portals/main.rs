@@ -1,12 +1,13 @@
+use std::f32::consts::FRAC_PI_2;
+
 use nannou::prelude::*;
-use nannou_egui::{Egui, egui};
+use nannou_egui::Egui;
 
 use crate::{
     camera::Camera,
-    cpu_raytracer::{DebugRay, check_camera_portal_teleport},
+    cpu_raytracer::{DebugRayEmitter, check_camera_portal_teleport},
     gpu::{GpuState, Uniform},
     scene::Scene,
-    util::quat_to,
 };
 
 mod camera;
@@ -28,7 +29,7 @@ struct Model {
     camera: Camera,
     mouse_locked: bool,
 
-    debug_rays: Vec<DebugRay>,
+    debug_ray_emitters: Vec<DebugRayEmitter>,
 
     ui: Egui,
 }
@@ -67,13 +68,6 @@ fn model(app: &App) -> Model {
     let state = GpuState::new(device);
 
     let ui = Egui::from_window(&window);
-    let ctx = ui.ctx();
-    let input = egui::RawInput::default();
-    let _ = ctx.run(input, |ctx| {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Hello egui!");
-        });
-    });
 
     Model {
         window_id,
@@ -83,7 +77,7 @@ fn model(app: &App) -> Model {
         camera: Camera::new(),
         mouse_locked: false,
 
-        debug_rays: Vec::new(),
+        debug_ray_emitters: Vec::new(),
 
         ui,
     }
@@ -113,11 +107,8 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) {
                 if model.mouse_locked { "ON" } else { "OFF" }
             );
         }
-        Key::R => {
-            model.shoot_debug_ray();
-        }
         Key::C => {
-            model.debug_rays = Vec::new();
+            model.debug_ray_emitters = Vec::new();
         }
         _ => {}
     }
@@ -146,7 +137,8 @@ fn mouse_moved(app: &App, model: &mut Model, pos: Point2) {
         let res = window.rect().wh() * 0.5;
 
         model.camera.yaw += pos.x * model.camera.sensitivity;
-        model.camera.pitch += pos.y * model.camera.sensitivity;
+        model.camera.pitch = (model.camera.pitch + pos.y * model.camera.sensitivity)
+            .clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
 
         window.set_cursor_position_points(res.x, res.y).unwrap();
     }
@@ -185,11 +177,15 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
     if app.keys.down.contains(&Key::Equals) {
         model.camera.fov_multiplier = (model.camera.fov_multiplier + 0.01).min(3.0);
-        println!("FOV: {:.2}", model.camera.fov_multiplier);
+        // println!("FOV: {:.2}", model.camera.fov_multiplier);
     }
     if app.keys.down.contains(&Key::Minus) {
         model.camera.fov_multiplier = (model.camera.fov_multiplier - 0.01).max(0.1);
-        println!("FOV: {:.2}", model.camera.fov_multiplier);
+        // println!("FOV: {:.2}", model.camera.fov_multiplier);
+    }
+
+    if app.keys.down.contains(&Key::R) {
+        model.add_debug_ray_emitter();
     }
 
     if movement.length() > 0.0 {
@@ -211,78 +207,6 @@ fn update(app: &App, model: &mut Model, update: Update) {
     // let pos = lerp * (1.0 - lerp) * Vec3::ZERO + lerp * Vec3::new(0.0, 1.0, 5.0);
 
     // model.camera.position = pos;
-
-    animate_portals(model, app.time);
-}
-
-fn animate_portals(model: &mut Model, time: f32) {
-    if model.current_scene == 4 {
-        let scene = &mut model.scenes[model.current_scene];
-
-        if scene.data.portal_pair_count > 0 {
-            // Oscillating portals
-            let base_pos_a = scene.data.portal_pairs[0].portal_a.position();
-            let base_pos_b = scene.data.portal_pairs[0].portal_b.position();
-
-            let rot_a = Quat::from_rotation_y((time * 0.2).sin()) * quat_to(Vec3::X);
-            // let rot_b = Quat::from_rotation_y((-time * 0.3).sin())
-            // * quat_to(-Vec3::X);
-
-            scene.data.portal_pairs[0].animate_both(base_pos_a, rot_a, base_pos_b, Quat::IDENTITY);
-        }
-
-        if scene.data.portal_pair_count > 1 {
-            // Rotating second portal pair
-            let rotation_speed = time * 0.8;
-            let pos_a = Vec3::new(0.0, 1.0, -6.3);
-            let pos_b = Vec3::new(
-                1.4 + (rotation_speed * 2.0).cos() * 0.5,
-                1.0 + (rotation_speed).sin() * 0.3,
-                -1.0 + (rotation_speed * 1.5).sin() * 0.4,
-            );
-
-            let rot_a = Quat::from_rotation_y(rotation_speed) * quat_to(Vec3::Z);
-            let rot_b = Quat::from_rotation_y(-rotation_speed * 0.7)
-                * Quat::from_rotation_z(PI / 2.0)
-                * Quat::from_rotation_y(-PI / 2.0);
-
-            scene.data.portal_pairs[1].animate_both(pos_a, rot_a, pos_b, rot_b);
-        }
-    } else if model.current_scene == 5 {
-        let scene = &mut model.scenes[model.current_scene];
-
-        if scene.data.portal_pair_count > 0 {
-            let sign = (time % 2.0 - 1.0).signum();
-            let time = sign * (1.0 - time % 2.0) + 1.0;
-            let time = 3.0 * time * time - 2.0 * time * time * time;
-
-            let a = vec3(0.0, 1.0, 0.0);
-            let b = vec3(-2.0, 1.0, 0.0);
-            let c = vec3(-2.0, 1.0, 2.0);
-
-            let f3 = time * time;
-            let f1 = 1.0 - 2.0 * time + f3;
-            let f2 = 2.0 * time - 2.0 * f3;
-
-            let pos_a = f1 * a + f2 * b + f3 * c;
-            // let pos_b = vec3(-pos_a.x, pos_a.y, pos_a.z);
-
-            let f4 = -2.0 + 2.0 * time;
-            let f5 = 2.0 - 4.0 * time;
-            let f6 = 2.0 * time;
-
-            let vel_a = f4 * a + f5 * b + f6 * c;
-            // let vel_b = vec3(-vel_a.x, vel_a.y, vel_a.z);
-            let vel_a_norm = vel_a.normalize();
-            // let vel_b_norm = vel_b.normalize();
-
-            let rot_a = quat_to(vel_a_norm);
-            // let rot_b = quat_to(vel_b_norm);
-
-            // scene.data.portal_pairs[0].animate_both(pos_a, rot_a, pos_b, rot_b);
-            scene.data.portal_pairs[0].animate_both(pos_a, rot_a, a, quat_to(Vec3::X));
-        }
-    }
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
@@ -290,23 +214,37 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
     let queue = window.queue();
 
-    // Update uniforms
-    let (w, h) = window.inner_size_points();
-    let screen_size = vec2(w, h);
+    let (w, h) = window.inner_size_pixels();
 
+    // Prepare the current scene for the GPU. This is probably pretty expensive
     let scene_data = &model.scenes[model.current_scene];
     let raw_data = Scene::to_raw(scene_data);
 
-    let uniform = Uniform::build(w, h, app.time, model.current_scene, &model.camera);
+    let uniform = Uniform::build(
+        w as f32,
+        h as f32,
+        app.time,
+        model.current_scene,
+        &model.camera,
+    );
+
+    // Upload to the GPU
     model.state.write_uniform(queue, uniform);
     model.state.write_scene_data(queue, raw_data);
 
     model.state.render(device, queue, &frame);
 
+    // // Draw debug rays
     let draw = app.draw();
+
+    // Include the scale factor in the screen size
+    let screen_size = vec2(w as f32, h as f32) * window.scale_factor();
     model.draw_debug_ray(&draw, screen_size);
 
-    model.ui.draw_to_frame(&frame).unwrap();
+    model.camera.draw_ring(&draw, screen_size);
 
     draw.to_frame(app, &frame).unwrap();
+
+    // Draw ui on top of everything else
+    model.ui.draw_to_frame(&frame).unwrap();
 }
