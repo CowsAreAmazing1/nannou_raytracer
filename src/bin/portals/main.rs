@@ -96,12 +96,16 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) {
             }
         }
         Key::Tab => {
+            let window = app.window(model.window_id).unwrap();
+
             // If mouse_locked is true, show cursor is false
-            app.window(model.window_id)
-                .unwrap()
-                .set_cursor_visible(model.mouse_locked);
+            window.set_cursor_visible(model.mouse_locked);
 
             model.mouse_locked = !model.mouse_locked;
+
+            let res = window.rect().wh() * 0.5;
+            window.set_cursor_position_points(res.x, res.y).unwrap();
+
             println!(
                 "Mouse lock: {}",
                 if model.mouse_locked { "ON" } else { "OFF" }

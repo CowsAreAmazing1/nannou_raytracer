@@ -117,6 +117,7 @@ impl Camera {
             })
     }
 
+    /// This still doesnt quite work for some reason
     pub fn clip_ray_to_screen(
         &self,
         visible_point: Vec3,
@@ -131,23 +132,27 @@ impl Camera {
             let t = i as f32 * 0.01;
             let test_point = visible_point + ray_dir * t;
 
-            if let Some(screen_pos) = self.world_to_screen_unbounded(test_point, screen_size) {
+            // If the point is in front of the camera but outside the screen bounds
+            // Once this happens the rest of the points will not be on screen
+            if let Some(screen_pos) = self.world_to_screen_unbounded(test_point, screen_size)
+                && screen_pos.x.abs() >= screen_bounds.x
+                && screen_pos.y.abs() >= screen_bounds.y
+            {
                 // Check if we've reached screen bounds
-                if screen_pos.x.abs() <= screen_bounds.x && screen_pos.y.abs() <= screen_bounds.y {
-                    let clamped_x = screen_pos.x.clamp(-screen_bounds.x, screen_bounds.x);
-                    let clamped_y = screen_pos.y.clamp(-screen_bounds.y, screen_bounds.y);
+                let clamped_x = screen_pos.x.clamp(-screen_bounds.x, screen_bounds.x);
+                let clamped_y = screen_pos.y.clamp(-screen_bounds.y, screen_bounds.y);
 
-                    return Some(vec2(clamped_x, clamped_y));
-                } else if screen_pos.x.abs() <= screen_bounds.x {
-                    let clamped_y = screen_pos.y.clamp(-screen_bounds.y, screen_bounds.y);
-
-                    return Some(vec2(screen_pos.x, clamped_y));
-                } else if screen_pos.y.abs() <= screen_bounds.y {
-                    let clamped_x = screen_pos.x.clamp(-screen_bounds.x, screen_bounds.x);
-
-                    return Some(vec2(clamped_x, screen_pos.y));
-                }
+                return Some(vec2(clamped_x, clamped_y));
             }
+            //  else if screen_pos.x.abs() <= screen_bounds.x {
+            //     let clamped_x = screen_pos.x.clamp(-screen_bounds.x, screen_bounds.x);
+
+            //     return Some(vec2(clamped_x, screen_pos.y));
+            // } else if screen_pos.y.abs() <= screen_bounds.y {
+            //     screen_pos.y.clamp(-screen_bounds.y, screen_bounds.y)
+
+            //     return Some(vec2(screen_pos.x, clamped_y));
+            // }
         }
         None
     }
@@ -178,8 +183,6 @@ impl Camera {
             }
         }
 
-        println!("{}", clipped_points.len());
-
         if clipped_points.len() >= 2 {
             Some((
                 *clipped_points.first().unwrap(),
@@ -192,10 +195,8 @@ impl Camera {
 
     pub fn draw_segment(&self, draw: &Draw, segment: &Segment, screen_size: Vec2) {
         // Try to get screen positions for both points
-        let start_2d = self.world_to_screen(segment.start, screen_size);
-        let end_2d = self.world_to_screen(segment.end, screen_size);
-
-        println!("{}, {}", start_2d.is_some(), end_2d.is_some());
+        let start_2d = self.world_to_screen_unbounded(segment.start, screen_size);
+        let end_2d = self.world_to_screen_unbounded(segment.end, screen_size);
 
         // Handle different visibility cases
         match (start_2d, end_2d) {
@@ -204,7 +205,7 @@ impl Camera {
                 draw.line()
                     .start(start)
                     .end(end)
-                    .color(rgb(segment.color[0], segment.color[1], segment.color[2]))
+                    .color(Srgb::from_components(segment.color.into()))
                     .weight(segment.weight);
             }
             // Only start visible - clip to screen edge
@@ -250,7 +251,7 @@ impl Camera {
         let points = (0..100)
             .map(|i| {
                 let rad = i as f32 / 100.0 * TAU;
-                vec3(rad.cos(), rad.sin(), 0.0) * 2.0
+                vec3(rad.cos(), rad.sin(), 0.0)
             })
             .collect::<Vec<_>>();
 
