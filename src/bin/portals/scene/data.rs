@@ -61,7 +61,7 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_ellipse(Ellipse::new(
             vec3(3.0, 1.5, 0.0),
-            Quat::from_euler(XYZ, 0.0, 0.0, -FRAC_PI_2),
+            Quat::from_euler(XYZ, 0.0, 0.0, FRAC_PI_2),
             e_a,
             e_b,
             rim_thickness,
@@ -70,7 +70,7 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
         scene.add_ellipse(Ellipse::new(
             vec3(-3.0, 1.5, 0.0),
-            Quat::from_euler(XYZ, 0.0, 0.0, -FRAC_PI_2),
+            Quat::from_euler(XYZ, 0.0, 0.0, FRAC_PI_2),
             e_a,
             e_b,
             rim_thickness,
@@ -123,6 +123,41 @@ pub fn create_scenes() -> Vec<Scene> {
             scenes[1].data.ellipses[0],
             scenes[1].data.ellipses[1],
         ));
+
+        scenes.push(scene);
+    }
+
+    {
+        // Scene 2.5: Same as 1 but with a pair of portals
+        let mut scene = Scene::new("A Few Portal Pairs");
+
+        for plane in scenes[1].data.planes.iter() {
+            scene.add_plane(*plane);
+        }
+
+        for i in 0..3 {
+            let offset = i as f32 * 0.5;
+            let ellipse_a = Ellipse::new(
+                scenes[1].data.ellipses[0].center + vec3(0.0, 0.0, 3.0 * offset),
+                scenes[1].data.ellipses[0].quat(),
+                e_a,
+                e_b,
+                rim_thickness,
+                ORANGERED.into_format(),
+                BLACK.into_format(),
+            );
+            let ellipse_b = Ellipse::new(
+                scenes[1].data.ellipses[1].center + vec3(0.0, 0.0, 3.0 * offset),
+                scenes[1].data.ellipses[1].quat(),
+                e_a,
+                e_b,
+                rim_thickness,
+                BLUEVIOLET.into_format(),
+                BLACK.into_format(),
+            );
+
+            scene.add_portal_pair(PortalPair::from_ellipses(ellipse_a, ellipse_b));
+        }
 
         scenes.push(scene);
     }

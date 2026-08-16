@@ -418,6 +418,7 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
         var in_portal: Portal;
         var out_portal: Portal;
         var has_hit_portal = false;
+        var in_is_a: bool;
         var has_entered_portal = false;
 
         for (var i: u32 = 0u; i < scene.portal_pair_count; i++) {
@@ -428,11 +429,12 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
 
             // Check portal A
             if t_a > 0.001 && t_a < closest_portal_t {
-                has_hit_portal = true;
-
                 closest_portal_t = t_a;
                 in_portal = portal_pair.portal_a;
                 out_portal = portal_pair.portal_b;
+
+                has_hit_portal = true;
+                in_is_a = true;
 
                 if dot(current_ray.direction, portal_pair.portal_a.ellipse.normal) < 0.0 {
                     has_entered_portal = true;
@@ -441,11 +443,12 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
 
             // Check portal B
             if t_b > 0.001 && t_b < closest_portal_t {
-                has_hit_portal = true;
-
                 closest_portal_t = t_b;
                 in_portal = portal_pair.portal_b;
                 out_portal = portal_pair.portal_a;
+
+                has_hit_portal = true;
+                in_is_a = false;
 
                 if dot(current_ray.direction, portal_pair.portal_b.ellipse.normal) > 0.0 {
                     has_entered_portal = true;
@@ -454,6 +457,12 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
         }
 
         if has_hit_portal { // A portal was hit, maybe entered
+            if in_is_a {
+                has_entered_portal = dot(current_ray.direction, in_portal.ellipse.normal) < 0.0;
+            } else {
+                has_entered_portal = dot(current_ray.direction, in_portal.ellipse.normal) > 0.0;
+            }
+
             let portal_hit_point = current_ray.origin + closest_portal_t * current_ray.direction;
 
             if has_entered_portal {
@@ -480,7 +489,7 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
             }
         } else { // No portals hit, just use the scene hit info
             let mult = final_hit_info.multiplier;
-            final_hit_info = hit_info;
+            final_hit_info = hit_info; // <-
             final_hit_info.multiplier = mult;
             break;
         }
