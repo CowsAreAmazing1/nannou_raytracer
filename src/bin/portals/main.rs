@@ -1,11 +1,11 @@
 use std::f32::consts::FRAC_PI_2;
 
-use nannou::prelude::*;
+use nannou::{glam::EulerRot::XYZ, prelude::*};
 use nannou_egui::Egui;
 
 use crate::{
     camera::Camera,
-    cpu_raytracer::{DebugRayEmitter, check_camera_portal_teleport},
+    cpu_raytracer::DebugRayEmitter,
     gpu::{GpuState, Uniform},
     scene::Scene,
 };
@@ -156,61 +156,12 @@ fn update(app: &App, model: &mut Model, update: Update) {
     model.update_ui();
 
     let dt = update.since_last.as_secs_f32();
-
-    let old_position = model.camera.position;
-
-    let mut movement = Vec3::ZERO;
-    if app.keys.down.contains(&Key::W) {
-        movement += model.camera.forward();
-    }
-    if app.keys.down.contains(&Key::A) {
-        movement += model.camera.right();
-    }
-    if app.keys.down.contains(&Key::S) {
-        movement -= model.camera.forward();
-    }
-    if app.keys.down.contains(&Key::D) {
-        movement -= model.camera.right();
-    }
-    if app.keys.down.contains(&Key::Space) {
-        movement += model.camera.up();
-    }
-    if app.keys.down.contains(&Key::LShift) {
-        movement -= model.camera.up();
-    }
-
-    if app.keys.down.contains(&Key::Equals) {
-        model.camera.fov_multiplier = (model.camera.fov_multiplier + 0.01).min(3.0);
-        // println!("FOV: {:.2}", model.camera.fov_multiplier);
-    }
-    if app.keys.down.contains(&Key::Minus) {
-        model.camera.fov_multiplier = (model.camera.fov_multiplier - 0.01).max(0.1);
-        // println!("FOV: {:.2}", model.camera.fov_multiplier);
-    }
+    let scene_data = &model.scenes[model.current_scene].data;
+    model.camera.movement(app, dt, scene_data);
 
     if app.keys.down.contains(&Key::R) {
         model.add_debug_ray_emitter();
     }
-
-    if movement.length() > 0.0 {
-        movement = movement.normalize() * model.camera.speed * dt;
-        let new_position = model.camera.position + movement;
-
-        if let Some(teleported_pos) = check_camera_portal_teleport(
-            &model.scenes[model.current_scene].data,
-            old_position,
-            new_position,
-        ) {
-            model.camera.position = teleported_pos;
-        } else {
-            model.camera.position = new_position;
-        }
-    }
-
-    // let lerp = app.time % 1.0;
-    // let pos = lerp * (1.0 - lerp) * Vec3::ZERO + lerp * Vec3::new(0.0, 1.0, 5.0);
-
-    // model.camera.position = pos;
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {

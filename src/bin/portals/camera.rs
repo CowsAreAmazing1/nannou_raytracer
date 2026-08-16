@@ -1,7 +1,7 @@
 use nannou::prelude::*;
 use std::f32::consts::{PI, TAU};
 
-use crate::{cpu_raytracer::Segment, util::WORLD_UP};
+use crate::{cpu_raytracer::Segment, scene::SceneData, util::WORLD_UP};
 
 pub struct Camera {
     pub position: Vec3,
@@ -42,6 +42,54 @@ impl Camera {
 
     pub fn up(&self) -> Vec3 {
         Vec3::Y // eventually `up` will include camera roll
+    }
+
+    pub fn movement(&mut self, app: &App, dt: f32, scene_data: &SceneData) {
+        let old_position = self.position;
+
+        let mut movement = Vec3::ZERO;
+        if app.keys.down.contains(&Key::W) {
+            movement += self.forward();
+        }
+        if app.keys.down.contains(&Key::A) {
+            movement += self.right();
+        }
+        if app.keys.down.contains(&Key::S) {
+            movement -= self.forward();
+        }
+        if app.keys.down.contains(&Key::D) {
+            movement -= self.right();
+        }
+        if app.keys.down.contains(&Key::Space) {
+            movement += self.up();
+        }
+        if app.keys.down.contains(&Key::LShift) {
+            movement -= self.up();
+        }
+
+        if app.keys.down.contains(&Key::Equals) {
+            self.fov_multiplier = (self.fov_multiplier + 0.01).min(3.0);
+            // println!("FOV: {:.2}", self.fov_multiplier);
+        }
+        if app.keys.down.contains(&Key::Minus) {
+            self.fov_multiplier = (self.fov_multiplier - 0.01).max(0.1);
+            // println!("FOV: {:.2}", self.fov_multiplier);
+        }
+
+        if movement.length() > 0.0 {
+            movement = movement.normalize() * self.speed * dt;
+            let new_position = self.position + movement;
+
+            if let Some(teleported_pos) = crate::cpu_raytracer::check_camera_portal_teleport(
+                scene_data,
+                old_position,
+                new_position,
+            ) {
+                self.position = teleported_pos;
+            } else {
+                self.position = new_position;
+            }
+        }
     }
 
     /// Returns the forward, right, and up vectors of the camera. Used for debug rays. Change this in the new camera orientation fix
