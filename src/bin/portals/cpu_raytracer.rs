@@ -415,6 +415,7 @@ pub fn check_camera_portal_teleport(
             movement_length,
             &portal_pair.portal_a,
             &portal_pair.portal_b,
+            |d| d < 0.0,
         ) {
             return Some(teleport_pos);
         }
@@ -425,6 +426,7 @@ pub fn check_camera_portal_teleport(
             movement_length,
             &portal_pair.portal_b,
             &portal_pair.portal_a,
+            |d| d > 0.0,
         ) {
             return Some(teleport_pos);
         }
@@ -439,6 +441,7 @@ fn check_single_portal_teleport(
     max_distance: f32,
     in_portal: &Portal,
     out_portal: &Portal,
+    comp: fn(f32) -> bool,
 ) -> Option<Vec3> {
     let ellipse = in_portal.ellipse();
 
@@ -446,7 +449,7 @@ fn check_single_portal_teleport(
 
     if t > 0.001 && t < max_distance {
         let portal_normal = ellipse.normal();
-        if ray_direction.dot(portal_normal) < 0.0 {
+        if comp(ray_direction.dot(portal_normal)) {
             let hit_point = ray_origin + t * ray_direction;
             let remaining_distance = max_distance - t;
 

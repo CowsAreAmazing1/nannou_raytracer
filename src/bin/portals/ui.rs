@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use nannou::glam::{Quat, Vec3};
-use nannou_egui::egui::{self, Align2, Slider, Ui};
+use nannou_egui::egui::{self, Align2, CollapsingHeader, Slider, Ui};
 
 use crate::{
     Model,
@@ -153,40 +153,43 @@ impl Model {
                 });
 
                 let scene_label = format!("Scene {}", self.current_scene + 1);
-                ui.collapsing(&scene_label, |ui| {
-                    // Plane UI
-                    ui.collapsing("Planes", |ui| {
-                        let planes = &mut self.scenes[self.current_scene].data.planes;
-                        for (plane_idx, plane) in planes.iter_mut().enumerate() {
-                            let plane_label = format!("Plane {}", plane_idx + 1);
-                            ui.collapsing(&plane_label, |ui| {
-                                plane.add_ui(ui);
-                            });
-                        }
-                    });
 
-                    // Ellipse UI
-                    ui.collapsing("Ellipses", |ui| {
-                        let ellipses = &mut self.scenes[self.current_scene].data.ellipses;
-                        for (ellipse_idx, ellipse) in ellipses.iter_mut().enumerate() {
-                            let ellipse_label = format!("Ellipse {}", ellipse_idx + 1);
-                            ui.collapsing(&ellipse_label, |ui| {
-                                ellipse.add_ui(ui);
-                            });
-                        }
-                    });
+                CollapsingHeader::new(&scene_label)
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        // Plane UI
+                        ui.collapsing("Planes", |ui| {
+                            let planes = &mut self.scenes[self.current_scene].data.planes;
+                            for (plane_idx, plane) in planes.iter_mut().enumerate() {
+                                let plane_label = format!("Plane {}", plane_idx + 1);
+                                ui.collapsing(&plane_label, |ui| {
+                                    plane.add_ui(ui);
+                                });
+                            }
+                        });
 
-                    // Portal Pair UI
-                    ui.collapsing("Portals", |ui| {
-                        let pairs = &mut self.scenes[self.current_scene].data.portal_pairs;
-                        for (pair_idx, pair) in pairs.iter_mut().enumerate() {
-                            let pair_label = format!("Portal Pair {}", pair_idx + 1);
-                            ui.collapsing(&pair_label, |ui| {
-                                pair.add_ui(ui);
-                            });
-                        }
+                        // Ellipse UI
+                        ui.collapsing("Ellipses", |ui| {
+                            let ellipses = &mut self.scenes[self.current_scene].data.ellipses;
+                            for (ellipse_idx, ellipse) in ellipses.iter_mut().enumerate() {
+                                let ellipse_label = format!("Ellipse {}", ellipse_idx + 1);
+                                ui.collapsing(&ellipse_label, |ui| {
+                                    ellipse.add_ui(ui);
+                                });
+                            }
+                        });
+
+                        // Portal Pair UI
+                        ui.collapsing("Portals", |ui| {
+                            let pairs = &mut self.scenes[self.current_scene].data.portal_pairs;
+                            for (pair_idx, pair) in pairs.iter_mut().enumerate() {
+                                let pair_label = format!("Portal Pair {}", pair_idx + 1);
+                                ui.collapsing(&pair_label, |ui| {
+                                    pair.add_ui(ui);
+                                });
+                            }
+                        });
                     });
-                });
 
                 // test portal transforms
                 if self.current_scene == 0 {
