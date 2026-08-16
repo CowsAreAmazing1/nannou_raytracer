@@ -319,13 +319,13 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_portal_pair(PortalPair::new(
             Portal::new(
-                Vec3::new(-0.55, 0.0 + 1.0, 0.0 - 5.0),
-                (0.0, 0.0, -FRAC_PI_2),
+                Vec3::new(0.55, 0.0 + 1.0, 0.0 - 5.0),
+                (0.0, 0.0, FRAC_PI_2),
                 0.6,
                 1.0,
             ),
             Portal::new(
-                Vec3::new(0.55, 0.0 + 1.0, 0.0 - 5.0),
+                Vec3::new(-0.55, 0.0 + 1.0, 0.0 - 5.0),
                 (0.0, 0.0, FRAC_PI_2),
                 0.6,
                 1.0,

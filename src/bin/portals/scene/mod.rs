@@ -5,7 +5,7 @@ pub mod primitive;
 use bytemuck::{Pod, Zeroable};
 
 use crate::scene::{
-    portal::{PortalPair, PortalPairRaw},
+    portal::{Portal, PortalPair, PortalPairRaw},
     primitive::{
         cube::{Cube, CubeRaw},
         ellipse::{Ellipse, EllipseRaw},
@@ -117,6 +117,17 @@ impl Scene {
             portal_pairs,
             cubes,
         }
+    }
+
+    pub fn for_each_portal<F>(&self, f: F)
+    where
+        F: FnMut(&Portal),
+    {
+        self.data
+            .portal_pairs
+            .iter()
+            .flat_map(|pair| [pair.portal_a.as_ref(), pair.portal_b.as_ref()])
+            .for_each(f);
     }
 }
 

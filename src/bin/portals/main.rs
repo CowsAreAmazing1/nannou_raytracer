@@ -5,13 +5,14 @@ use nannou_egui::Egui;
 
 use crate::{
     camera::Camera,
-    cpu_raytracer::DebugRayEmitter,
     gpu::{GpuState, Uniform},
     scene::Scene,
+    ui::DebugRayEmitter,
 };
 
 mod camera;
 mod cpu_raytracer;
+mod egui;
 mod gpu;
 mod scene;
 mod ui;
@@ -28,6 +29,7 @@ struct Model {
     scenes: Vec<Scene>,
     camera: Camera,
     mouse_locked: bool,
+    show_portal_normals: bool,
 
     debug_ray_emitters: Vec<DebugRayEmitter>,
 
@@ -76,6 +78,7 @@ fn model(app: &App) -> Model {
         scenes,
         camera: Camera::new(),
         mouse_locked: false,
+        show_portal_normals: false,
 
         debug_ray_emitters: Vec::new(),
 
@@ -194,8 +197,10 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     // Include the scale factor in the screen size
     let screen_size = vec2(w as f32, h as f32) * window.scale_factor();
-    model.draw_debug_ray(&draw, screen_size);
 
+    model.draw_debug_ray(&draw, screen_size);
+    model.draw_portal_normals(&draw, screen_size);
+    model.draw_look_ellipse(&draw, screen_size);
     model.camera.draw_ring(&draw, screen_size);
 
     draw.to_frame(app, &frame).unwrap();

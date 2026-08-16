@@ -1,7 +1,7 @@
 use nannou::prelude::*;
 use std::f32::consts::{PI, TAU};
 
-use crate::{cpu_raytracer::Segment, scene::SceneData, util::WORLD_UP};
+use crate::{scene::SceneData, ui::Segment, util::WORLD_UP};
 
 pub struct Camera {
     pub position: Vec3,

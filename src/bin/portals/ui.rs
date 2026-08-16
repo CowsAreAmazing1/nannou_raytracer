@@ -1,250 +1,163 @@
-use std::f32::consts::PI;
-
-use nannou::glam::{Quat, Vec3};
-use nannou_egui::egui::{self, Align2, CollapsingHeader, Slider, Ui};
-
-use crate::{
-    Model,
-    camera::Camera,
-    scene::{
-        portal::{Portal, PortalPair},
-        primitive::{ellipse::Ellipse, plane::Plane},
-    },
+use nannou::{
+    Draw,
+    color::RED,
+    glam::{Vec2, Vec3},
 };
 
-impl Camera {
-    fn add_ui(&mut self, ui: &mut Ui) {
-        let position = &mut self.position;
-        ui.collapsing("Camera Position", |ui| {
-            ui.add(Slider::new(&mut position.x, -10.0..=10.0));
-            ui.add(Slider::new(&mut position.y, -10.0..=10.0));
-            ui.add(Slider::new(&mut position.z, -10.0..=10.0));
-        });
+use crate::{Model, cpu_raytracer::trace_debug_ray};
 
-        ui.collapsing("Camera Rotation", |ui| {
-            ui.add(Slider::new(&mut self.pitch, -10.0..=10.0));
-            ui.add(Slider::new(&mut self.yaw, -10.0..=10.0));
-        });
+pub struct DebugRayEmitter {
+    origin: Vec3,
+    directions: (Vec3, Vec3, Vec3), // (forward, right, up)
+}
+
+impl DebugRayEmitter {
+    pub fn new(origin: Vec3, directions: (Vec3, Vec3, Vec3)) -> Self {
+        Self { origin, directions }
     }
 }
 
-impl Plane {
-    fn add_ui(&mut self, ui: &mut Ui) {
-        ui.collapsing("Point", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("x");
-                ui.add(Slider::new(&mut self.point.x, -10.0..=10.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("y");
-                ui.add(Slider::new(&mut self.point.y, -10.0..=10.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("z");
-                ui.add(Slider::new(&mut self.point.z, -10.0..=10.0));
-            });
-        });
-
-        let (mut a, mut b, mut c) = self.quat.to_euler(nannou::glam::EulerRot::XYZ);
-        a /= PI;
-        b /= PI;
-        c /= PI;
-
-        ui.collapsing("Normal", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("a");
-                ui.add(Slider::new(&mut a, -1.0..=1.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("b");
-                ui.add(Slider::new(&mut b, -1.0..=1.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("c");
-                ui.add(Slider::new(&mut c, -1.0..=1.0));
-            });
-
-            self.quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, PI * a, PI * b, PI * c);
-        });
-    }
+pub struct Segment {
+    pub start: Vec3,
+    pub end: Vec3,
+    pub color: [f32; 3],
+    pub weight: f32,
 }
 
-impl Ellipse {
-    fn add_ui(&mut self, ui: &mut Ui) {
-        ui.collapsing("Point", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("x");
-                ui.add(Slider::new(&mut self.center.x, -10.0..=10.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("y");
-                ui.add(Slider::new(&mut self.center.y, -10.0..=10.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("z");
-                ui.add(Slider::new(&mut self.center.z, -10.0..=10.0));
-            });
-        });
-
-        // let (mut a, mut b, mut c) = self.rots;
-        // a /= PI;
-        // b /= PI;
-        // c /= PI;
-
-        // ui.collapsing("Normal", |ui| {
-        //     ui.horizontal(|ui| {
-        //         ui.label("a");
-        //         ui.add(Slider::new(&mut a, -1.0..=1.0));
-        //     });
-        //     ui.horizontal(|ui| {
-        //         ui.label("b");
-        //         ui.add(Slider::new(&mut b, -1.0..=1.0));
-        //     });
-        //     ui.horizontal(|ui| {
-        //         ui.label("c");
-        //         ui.add(Slider::new(&mut c, -1.0..=1.0));
-        //     });
-
-        //     self.rots = (PI * a, PI * b, PI * c);
-        // });
-
-        ui.horizontal(|ui| {
-            ui.label("Radius a");
-            ui.add(Slider::new(&mut self.radius_a, 0.0..=1.0));
-        });
-        ui.horizontal(|ui| {
-            ui.label("Radius b");
-            ui.add(Slider::new(&mut self.radius_b, 0.0..=1.0));
-        });
+impl Segment {
+    pub fn new(start: Vec3, end: Vec3, color: [f32; 3], weight: f32) -> Self {
+        Self {
+            start,
+            end,
+            color,
+            weight,
+        }
     }
-}
 
-impl Portal {
-    fn add_ui(&mut self, ui: &mut Ui) {
-        self.ellipse.add_ui(ui);
-
-        self.transform_from_self();
+    pub fn new_with_bounce(start: Vec3, end: Vec3, bounce: u32) -> Self {
+        Self {
+            start,
+            end,
+            color: Self::bounce_color(bounce),
+            weight: 3.0,
+        }
     }
-}
 
-impl PortalPair {
-    fn add_ui(&mut self, ui: &mut Ui) {
-        ui.collapsing("Portal A", |ui| {
-            self.portal_a.add_ui(ui);
-        });
-        ui.collapsing("Portal B", |ui| {
-            self.portal_b.add_ui(ui);
-        });
-
-        ui.add(egui::Slider::new(&mut self.doorification, 0.0..=1.0));
-        self.doorify_b_to_a();
+    fn bounce_color(bounce_count: u32) -> [f32; 3] {
+        match bounce_count {
+            // Thanks copilot
+            0 => [1.0, 1.0, 0.0], // Yellow for the first segment
+            1 => [0.0, 1.0, 0.0], // Green for the second segment
+            2 => [0.0, 0.0, 1.0], // Blue for the third segment
+            3 => [1.0, 0.0, 1.0], // Magenta for the fourth segment
+            4 => [1.0, 0.5, 0.0], // Orange for the fifth segment
+            _ => [0.0, 1.0, 1.0], // Cyan for subsequent segments
+        }
     }
 }
 
 impl Model {
-    pub fn update_ui(&mut self) {
-        let ctx = self.ui.begin_frame();
-        let text = self.scenes[self.current_scene].name.to_string();
-        egui::Window::new(text)
-            .anchor(Align2::LEFT_TOP, [5.0, 5.0])
-            .show(&ctx, |ui| {
-                ui.collapsing("Camera", |ui| {
-                    self.camera.add_ui(ui);
-                });
+    pub fn add_debug_ray_emitter(&mut self) {
+        let camera = &self.camera;
+        let ray_emitter = DebugRayEmitter::new(camera.position, camera.directions());
+        self.debug_ray_emitters.push(ray_emitter);
+    }
 
-                let scene_label = format!("Scene {}", self.current_scene + 1);
+    pub fn draw_debug_ray(&self, draw: &Draw, screen_size: Vec2) {
+        let mut debug_rays = Vec::new();
 
-                CollapsingHeader::new(&scene_label)
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        // Plane UI
-                        ui.collapsing("Planes", |ui| {
-                            let planes = &mut self.scenes[self.current_scene].data.planes;
-                            for (plane_idx, plane) in planes.iter_mut().enumerate() {
-                                let plane_label = format!("Plane {}", plane_idx + 1);
-                                ui.collapsing(&plane_label, |ui| {
-                                    plane.add_ui(ui);
-                                });
-                            }
-                        });
+        // Shoots a single ray directly forward from the camera
+        for emitter in self.debug_ray_emitters.iter() {
+            let ray_direction = emitter.directions.0;
+            let debug_ray = trace_debug_ray(
+                &self.scenes[self.current_scene].data,
+                emitter.origin,
+                ray_direction,
+                10,
+            );
+            debug_rays.push(debug_ray);
+        }
 
-                        // Ellipse UI
-                        ui.collapsing("Ellipses", |ui| {
-                            let ellipses = &mut self.scenes[self.current_scene].data.ellipses;
-                            for (ellipse_idx, ellipse) in ellipses.iter_mut().enumerate() {
-                                let ellipse_label = format!("Ellipse {}", ellipse_idx + 1);
-                                ui.collapsing(&ellipse_label, |ui| {
-                                    ellipse.add_ui(ui);
-                                });
-                            }
-                        });
+        // Shoots a spread of rays
+        // let m = 0.2;
+        // let res_x = 1;
+        // let res_y = 3;
 
-                        // Portal Pair UI
-                        ui.collapsing("Portals", |ui| {
-                            let pairs = &mut self.scenes[self.current_scene].data.portal_pairs;
-                            for (pair_idx, pair) in pairs.iter_mut().enumerate() {
-                                let pair_label = format!("Portal Pair {}", pair_idx + 1);
-                                ui.collapsing(&pair_label, |ui| {
-                                    pair.add_ui(ui);
-                                });
-                            }
-                        });
-                    });
+        // for emitter in self.debug_ray_emitters.iter() {
+        //     let (forward, right, up) = emitter.directions;
 
-                // test portal transforms
-                if self.current_scene == 0 {
-                    let scene_data = &mut self.scenes[0].data;
-                    scene_data.cubes[0].center = self.camera.position;
+        //     for x in 0..res_x {
+        //         for y in 0..res_y {
+        //             let uv_x = (x as f32 / res_x as f32) * 2.0 * m - m;
+        //             let uv_y = (y as f32 / res_y as f32) * 2.0 * m - m;
 
-                    // let portal_pair = &self.scenes[0].data.portal_pairs[0];
-                    let portal_pair = &scene_data.portal_pairs[0];
+        //             let ray_direction = (forward + uv_x * right + uv_y * up).normalize();
 
-                    // portal a
-                    if ui
-                        .add(egui::Button::new("Apply portal A transform"))
-                        .clicked()
-                    {
-                        let transform = portal_pair.portal_a.transformation_matrix;
+        //             let debug_ray = trace_debug_ray(
+        //                 &self.scenes[self.current_scene].data,
+        //                 emitter.origin,
+        //                 ray_direction,
+        //                 10,
+        //             );
 
-                        let cube = &mut scene_data.cubes[0];
-                        cube.center = transform.transform_point3(cube.center);
-                    }
-                    if ui
-                        .add(egui::Button::new("Apply portal A untransform"))
-                        .clicked()
-                    {
-                        let transform = portal_pair.portal_a.inverse_transformation_matrix;
+        //             debug_rays.push(debug_ray);
+        //         }
+        //     }
+        // }
 
-                        let cube = &mut scene_data.cubes[0];
-                        cube.center = transform.transform_point3(cube.center);
-                    }
+        for ray in debug_rays.iter() {
+            for segment in &ray.segments {
+                self.camera.draw_segment(draw, segment, screen_size);
+            }
 
-                    // portal b
-                    if ui
-                        .add(egui::Button::new("Apply portal B transform"))
-                        .clicked()
-                    {
-                        let transform = portal_pair.portal_b.transformation_matrix;
+            // Draw the origin of the ray
+            if let Some(first_segment) = ray.segments.first()
+                && let Some(origin_2d) = self
+                    .camera
+                    .world_to_screen(first_segment.start, screen_size)
+            {
+                draw.ellipse().xy(origin_2d).radius(5.0).color(RED);
+            }
+        }
+    }
 
-                        let cube = &mut scene_data.cubes[0];
-                        cube.center = transform.transform_point3(cube.center);
-                    }
-                    if ui
-                        .add(egui::Button::new("Apply portal B untransform"))
-                        .clicked()
-                    {
-                        let transform = portal_pair.portal_b.inverse_transformation_matrix;
+    pub fn draw_look_ellipse(&self, draw: &Draw, screen_size: Vec2) {
+        let origin = self.camera.position;
+        let direction = self.camera.forward();
 
-                        let cube = &mut self.scenes[0].data.cubes[0];
-                        cube.center = transform.transform_point3(cube.center);
-                    }
-                }
+        let dr = trace_debug_ray(&self.scenes[self.current_scene].data, origin, direction, 1);
 
-                ui.separator();
+        if let Some(end_pos) = dr.segments.last().map(|s| s.end)
+            && let Some(end_pos_2d) = self.camera.world_to_screen(end_pos, screen_size)
+        {
+            draw.ellipse()
+                .xy(end_pos_2d)
+                .radius(5.0 / dr.length)
+                .color(RED);
+        }
+    }
 
-                if ui.add(egui::Button::new("camera to origin")).clicked() {
-                    self.camera.position = Vec3::ZERO;
-                }
-            });
+    pub fn draw_portal_normals(&self, draw: &Draw, screen_size: Vec2) {
+        if !self.show_portal_normals {
+            return;
+        }
+
+        let scene = &self.scenes[self.current_scene];
+
+        scene.for_each_portal(|portal| {
+            let start = portal.position();
+            let end = start + portal.normal() * 0.5;
+
+            if let (Some(start_2d), Some(end_2d)) = (
+                self.camera.world_to_screen(start, screen_size),
+                self.camera.world_to_screen(end, screen_size),
+            ) {
+                draw.line()
+                    .start(start_2d)
+                    .end(end_2d)
+                    .weight(3.0)
+                    .color(RED);
+            }
+        });
     }
 }
