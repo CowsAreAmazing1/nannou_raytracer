@@ -2,7 +2,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use nannou::{
     color::*,
-    glam::{Quat, Vec3, vec3},
+    glam::{EulerRot::XYZ, Quat, Vec3, vec3},
 };
 
 use crate::{
@@ -35,7 +35,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_portal_pair(PortalPair::from_ellipses(
             Ellipse::new(
                 vec3(2.0, 0.0, 0.0),
-                (0.0, FRAC_PI_2, FRAC_PI_2),
+                Quat::from_euler(XYZ, 0.0, FRAC_PI_2, FRAC_PI_2),
                 0.6,
                 1.0,
                 0.1,
@@ -44,7 +44,7 @@ pub fn create_scenes() -> Vec<Scene> {
             ),
             Ellipse::new(
                 vec3(-2.0, 0.0, 0.0),
-                (0.0, PI, FRAC_PI_2),
+                Quat::from_euler(XYZ, 0.0, PI, FRAC_PI_2),
                 0.6,
                 1.0,
                 0.1,
@@ -61,7 +61,7 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_ellipse(Ellipse::new(
             vec3(3.0, 1.5, 0.0),
-            (0.0, 0.0, FRAC_PI_2),
+            Quat::from_euler(XYZ, 0.0, 0.0, FRAC_PI_2),
             e_a,
             e_b,
             rim_thickness,
@@ -70,7 +70,7 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
         scene.add_ellipse(Ellipse::new(
             vec3(-3.0, 1.5, 0.0),
-            (0.0, 0.0, FRAC_PI_2),
+            Quat::from_euler(XYZ, 0.0, 0.0, FRAC_PI_2),
             e_a,
             e_b,
             rim_thickness,
@@ -351,7 +351,7 @@ pub fn create_scenes() -> Vec<Scene> {
         scene.add_portal_pair(PortalPair::from_ellipses(
             Ellipse::new(
                 vec3(2.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
+                Quat::from_euler(XYZ, 0.0, 0.0, 0.0),
                 e_a,
                 e_b,
                 0.1,
@@ -360,7 +360,7 @@ pub fn create_scenes() -> Vec<Scene> {
             ),
             Ellipse::new(
                 vec3(-2.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
+                Quat::from_euler(XYZ, 0.0, 0.0, 0.0),
                 e_a,
                 e_b,
                 0.1,

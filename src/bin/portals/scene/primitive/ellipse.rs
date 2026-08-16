@@ -4,12 +4,14 @@ use nannou::{
     glam::{Quat, Vec3},
 };
 
+use crate::util::quat_to;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Ellipse {
     /// Position of the center of the ellipse
     pub center: Vec3,
-    /// Euler angle rotation values. Ideally this is a quaternion, but ui sliders become a pain to work with when using quaternions
-    pub rots: (f32, f32, f32),
+    /// Quaternion, representing the orientation of the ellipse normal w.r.t. the up (Y) axis
+    pub quat: Quat,
     /// Innder radius
     pub(crate) radius_a: f32,
     /// Outer radius
@@ -25,7 +27,7 @@ impl Default for Ellipse {
     fn default() -> Self {
         Self {
             center: Vec3::ZERO,
-            rots: (0.0, 0.0, 0.0),
+            quat: quat_to(Vec3::X),
             radius_a: 0.0,
             radius_b: 1.0,
             border_thickness: 0.1,
@@ -38,7 +40,7 @@ impl Default for Ellipse {
 impl Ellipse {
     pub fn new<P: Into<Vec3>, C: Into<Srgb>>(
         center: P,
-        rots: (f32, f32, f32),
+        quat: Quat,
         radius_a: f32,
         radius_b: f32,
         border_thickness: f32,
@@ -47,7 +49,7 @@ impl Ellipse {
     ) -> Self {
         Self {
             center: center.into(),
-            rots,
+            quat,
             radius_a,
             radius_b,
             border_thickness,
@@ -57,8 +59,7 @@ impl Ellipse {
     }
 
     pub fn quat(&self) -> Quat {
-        let (a, b, c) = self.rots;
-        Quat::from_euler(nannou::glam::EulerRot::XYZ, a, b, c)
+        self.quat
     }
 
     pub fn normal(&self) -> Vec3 {

@@ -86,27 +86,27 @@ impl Ellipse {
             });
         });
 
-        let (mut a, mut b, mut c) = self.rots;
-        a /= PI;
-        b /= PI;
-        c /= PI;
+        // let (mut a, mut b, mut c) = self.rots;
+        // a /= PI;
+        // b /= PI;
+        // c /= PI;
 
-        ui.collapsing("Normal", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("a");
-                ui.add(Slider::new(&mut a, -1.0..=1.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("b");
-                ui.add(Slider::new(&mut b, -1.0..=1.0));
-            });
-            ui.horizontal(|ui| {
-                ui.label("c");
-                ui.add(Slider::new(&mut c, -1.0..=1.0));
-            });
+        // ui.collapsing("Normal", |ui| {
+        //     ui.horizontal(|ui| {
+        //         ui.label("a");
+        //         ui.add(Slider::new(&mut a, -1.0..=1.0));
+        //     });
+        //     ui.horizontal(|ui| {
+        //         ui.label("b");
+        //         ui.add(Slider::new(&mut b, -1.0..=1.0));
+        //     });
+        //     ui.horizontal(|ui| {
+        //         ui.label("c");
+        //         ui.add(Slider::new(&mut c, -1.0..=1.0));
+        //     });
 
-            self.rots = (PI * a, PI * b, PI * c);
-        });
+        //     self.rots = (PI * a, PI * b, PI * c);
+        // });
 
         ui.horizontal(|ui| {
             ui.label("Radius a");

@@ -1,7 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use nannou::{
     color::{Srgb, WHITE},
-    glam::{Mat4, Quat, Vec3},
+    glam::{
+        EulerRot::{self, XYZ},
+        Mat4, Quat, Vec3,
+    },
 };
 use std::f32::consts::PI;
 
@@ -53,9 +56,11 @@ impl Portal {
         radius_b: f32,
         flipped: bool,
     ) -> Self {
+        let (a, b, c) = rotation;
+
         let ellipse = Ellipse::new(
             position,
-            rotation,
+            Quat::from_euler(XYZ, a, b, c),
             radius_a,
             radius_b,
             0.1,
@@ -98,9 +103,7 @@ impl Portal {
             .expect("Lone portal!")
     }
 
-    pub fn set_transform(&mut self, position: Vec3, rotation: (f32, f32, f32), flipped: bool) {
-        let (a, b, c) = rotation;
-        let quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, a, b, c);
+    pub fn set_transform(&mut self, position: Vec3, quat: Quat, flipped: bool) {
         let mut rotation = Mat4::from_quat(quat);
         let translation = Mat4::from_translation(position);
 
@@ -128,23 +131,27 @@ impl Portal {
         self.inverse_transformation_matrix = transform.inverse();
     }
 
+    pub fn rotate_delta(&mut self, rot: EulerRot, dx: f32, dy: f32, dz: f32) {
+        let delta_rotation = Quat::from_euler(rot, dx, dy, dz);
+        let new_quat = delta_rotation * self.ellipse.quat;
+
+        self.ellipse.quat = new_quat;
+        self.transform_from_self(false);
+    }
+
     pub fn position(&self) -> Vec3 {
         let partner = self.partner();
         self.ellipse
             .center
-            .lerp(partner.ellipse.center, self.doorification)
+            .lerp(partner.ellipse.center, self.doorification * 0.99999) // avoid z fighting
     }
 
-    pub fn rotation(&self) -> (f32, f32, f32) {
+    pub fn rotation(&self) -> Quat {
         let partner = self.partner();
-        (
-            (1.0 - self.doorification) * self.ellipse.rots.0
-                + self.doorification * partner.ellipse.rots.0,
-            (1.0 - self.doorification) * self.ellipse.rots.1
-                + self.doorification * partner.ellipse.rots.1,
-            (1.0 - self.doorification) * self.ellipse.rots.2
-                + self.doorification * partner.ellipse.rots.2,
-        )
+        let q1 = self.ellipse.quat();
+        let q2 = partner.ellipse.quat() * Quat::from_rotation_z(PI);
+
+        q1.slerp(q2, self.doorification)
     }
 
     fn doorify(&mut self, t: f32, flipped: bool) {
@@ -160,7 +167,7 @@ impl Portal {
         let mut ellipse = self.ellipse;
 
         ellipse.center = self.position();
-        ellipse.rots = self.rotation();
+        ellipse.quat = self.rotation();
 
         ellipse
     }
