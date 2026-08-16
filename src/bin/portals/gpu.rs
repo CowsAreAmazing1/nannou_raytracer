@@ -4,7 +4,7 @@ use nannou::{
     wgpu::{self, Device, Queue},
 };
 
-use crate::{Camera, scene::SceneDataRaw};
+use crate::{camera::Camera, scene::SceneDataRaw};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -159,8 +159,8 @@ impl GpuState {
         queue.write_buffer(&self.uniform_buffer, 0, cast_slice(&[uniform]));
     }
 
-    pub fn write_scene_data(&self, queue: &Queue, scene_data: SceneDataRaw) {
-        queue.write_buffer(&self.scene_buffer, 0, cast_slice(&[scene_data]));
+    pub fn write_scene_data(&self, queue: &Queue, raw_data: SceneDataRaw) {
+        queue.write_buffer(&self.scene_buffer, 0, cast_slice(&[raw_data]));
     }
 
     pub fn render(&self, device: &Device, queue: &Queue, frame: &Frame) {

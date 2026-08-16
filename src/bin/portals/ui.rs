@@ -4,7 +4,7 @@ use nannou::{
     glam::{Vec2, Vec3},
 };
 
-use crate::{Model, cpu_raytracer::trace_debug_ray};
+use crate::{cpu_raytracer::trace_debug_ray, scene::Scene, viewport::Viewport};
 
 pub struct DebugRayEmitter {
     origin: Vec3,
@@ -56,25 +56,20 @@ impl Segment {
     }
 }
 
-impl Model {
-    pub fn add_debug_ray_emitter(&mut self) {
-        let camera = &self.camera;
-        let ray_emitter = DebugRayEmitter::new(camera.position, camera.directions());
-        self.debug_ray_emitters.push(ray_emitter);
-    }
-
-    pub fn draw_debug_ray(&self, draw: &Draw, screen_size: Vec2) {
+impl Viewport {
+    pub fn draw_debug_ray(
+        &self,
+        emitters: &[DebugRayEmitter],
+        scene: &Scene,
+        draw: &Draw,
+        screen_size: Vec2,
+    ) {
         let mut debug_rays = Vec::new();
 
         // Shoots a single ray directly forward from the camera
-        for emitter in self.debug_ray_emitters.iter() {
+        for emitter in emitters {
             let ray_direction = emitter.directions.0;
-            let debug_ray = trace_debug_ray(
-                &self.scenes[self.current_scene].data,
-                emitter.origin,
-                ray_direction,
-                10,
-            );
+            let debug_ray = trace_debug_ray(&scene.data, emitter.origin, ray_direction, 10);
             debug_rays.push(debug_ray);
         }
 
@@ -121,11 +116,11 @@ impl Model {
         }
     }
 
-    pub fn draw_look_ellipse(&self, draw: &Draw, screen_size: Vec2) {
+    pub fn draw_look_ellipse(&self, scene: &Scene, draw: &Draw, screen_size: Vec2) {
         let origin = self.camera.position;
         let direction = self.camera.forward();
 
-        let dr = trace_debug_ray(&self.scenes[self.current_scene].data, origin, direction, 1);
+        let dr = trace_debug_ray(&scene.data, origin, direction, 1);
 
         if let Some(end_pos) = dr.segments.last().map(|s| s.end)
             && let Some(end_pos_2d) = self.camera.world_to_screen(end_pos, screen_size)
@@ -137,12 +132,10 @@ impl Model {
         }
     }
 
-    pub fn draw_portal_normals(&self, draw: &Draw, screen_size: Vec2) {
+    pub fn draw_portal_normals(&self, scene: &Scene, draw: &Draw, screen_size: Vec2) {
         if !self.show_portal_normals {
             return;
         }
-
-        let scene = &self.scenes[self.current_scene];
 
         scene.for_each_portal(|portal| {
             let start = portal.position();

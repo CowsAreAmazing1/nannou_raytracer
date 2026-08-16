@@ -10,6 +10,7 @@ use crate::{
         portal::{Portal, PortalPair},
         primitive::{ellipse::Ellipse, plane::Plane},
     },
+    viewport::Viewport,
 };
 
 impl Camera {
@@ -141,10 +142,10 @@ impl PortalPair {
     }
 }
 
-impl Model {
-    pub fn update_ui(&mut self) {
+impl Viewport {
+    pub fn update_ui(&mut self, model: &mut Model) {
         let ctx = self.ui.begin_frame();
-        let text = self.scenes[self.current_scene].name.to_string();
+        let text = model.scenes[model.current_scene].name.to_string();
         egui::Window::new(text)
             .anchor(Align2::LEFT_TOP, [5.0, 5.0])
             .show(&ctx, |ui| {
@@ -152,15 +153,15 @@ impl Model {
                     self.camera.add_ui(ui);
                 });
 
-                let scene_label = format!("Scene {}", self.current_scene + 1);
+                let scene_label = format!("Scene {}", model.current_scene + 1);
 
                 CollapsingHeader::new(&scene_label)
                     .default_open(true)
                     .show(ui, |ui| {
                         // Plane UI
-                        if !self.scenes[self.current_scene].data.planes.is_empty() {
+                        if !model.scenes[model.current_scene].data.planes.is_empty() {
                             ui.collapsing("Planes", |ui| {
-                                let planes = &mut self.scenes[self.current_scene].data.planes;
+                                let planes = &mut model.scenes[model.current_scene].data.planes;
                                 for (plane_idx, plane) in planes.iter_mut().enumerate() {
                                     let plane_label = format!("Plane {}", plane_idx + 1);
                                     ui.collapsing(&plane_label, |ui| {
@@ -171,9 +172,9 @@ impl Model {
                         }
 
                         // Ellipse UI
-                        if !self.scenes[self.current_scene].data.ellipses.is_empty() {
+                        if !model.scenes[model.current_scene].data.ellipses.is_empty() {
                             ui.collapsing("Ellipses", |ui| {
-                                let ellipses = &mut self.scenes[self.current_scene].data.ellipses;
+                                let ellipses = &mut model.scenes[model.current_scene].data.ellipses;
                                 for (ellipse_idx, ellipse) in ellipses.iter_mut().enumerate() {
                                     let ellipse_label = format!("Ellipse {}", ellipse_idx + 1);
                                     ui.collapsing(&ellipse_label, |ui| {
@@ -184,14 +185,19 @@ impl Model {
                         }
 
                         // Portal Pair UI
-                        if !self.scenes[self.current_scene].data.portal_pairs.is_empty() {
+                        if !model.scenes[model.current_scene]
+                            .data
+                            .portal_pairs
+                            .is_empty()
+                        {
                             ui.collapsing("Portals", |ui| {
                                 ui.add(egui::Checkbox::new(
                                     &mut self.show_portal_normals,
                                     "Show portal normals",
                                 ));
 
-                                let pairs = &mut self.scenes[self.current_scene].data.portal_pairs;
+                                let pairs =
+                                    &mut model.scenes[model.current_scene].data.portal_pairs;
                                 for (pair_idx, pair) in pairs.iter_mut().enumerate() {
                                     let pair_label = format!("Portal Pair {}", pair_idx + 1);
                                     ui.collapsing(&pair_label, |ui| {
@@ -203,11 +209,10 @@ impl Model {
                     });
 
                 // test portal transforms
-                if self.current_scene == 0 {
-                    let scene_data = &mut self.scenes[0].data;
+                if model.current_scene == 0 {
+                    let scene_data = &mut model.scenes[0].data;
                     scene_data.cubes[0].center = self.camera.position;
 
-                    // let portal_pair = &self.scenes[0].data.portal_pairs[0];
                     let portal_pair = &scene_data.portal_pairs[0];
 
                     // portal a
@@ -246,7 +251,7 @@ impl Model {
                     {
                         let transform = portal_pair.portal_b.inverse_transformation_matrix;
 
-                        let cube = &mut self.scenes[0].data.cubes[0];
+                        let cube = &mut model.scenes[0].data.cubes[0];
                         cube.center = transform.transform_point3(cube.center);
                     }
                 }
