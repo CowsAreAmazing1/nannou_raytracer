@@ -211,10 +211,9 @@ fn transform_direction_through_portal(
     let in_mat = in_portal.inverse_transformation_matrix;
     let out_mat = out_portal.transformation_matrix;
 
-    let mut base_direction = in_mat.transform_vector3(direction);
-    base_direction.y = -base_direction.y;
-
-    out_mat.transform_vector3(base_direction).normalize()
+    out_mat
+        .transform_vector3(in_mat.transform_vector3(direction))
+        .normalize()
 }
 
 fn bounce_color(bounce_count: u32) -> [f32; 3] {
@@ -266,7 +265,7 @@ fn trace_debug_ray(scene: &SceneData, origin: Vec3, direction: Vec3, max_bounces
             if t_b > 0.001 && t_b < closest_portal_t {
                 closest_portal_t = t_b;
 
-                portal_hit_type = if curr_ray_direction.dot(p_b.normal()) < 0.0 {
+                portal_hit_type = if curr_ray_direction.dot(p_b.normal()) > 0.0 {
                     PortalHitType::Front(p_b, p_a)
                 } else {
                     PortalHitType::Back

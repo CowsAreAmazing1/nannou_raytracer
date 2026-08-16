@@ -120,24 +120,24 @@ impl Ellipse {
 }
 
 impl Portal {
-    fn add_ui(&mut self, ui: &mut Ui, flipped: bool) {
+    fn add_ui(&mut self, ui: &mut Ui) {
         self.ellipse.add_ui(ui);
 
-        self.transform_from_self(flipped);
+        self.transform_from_self();
     }
 }
 
 impl PortalPair {
     fn add_ui(&mut self, ui: &mut Ui) {
         ui.collapsing("Portal A", |ui| {
-            self.portal_a.add_ui(ui, true);
+            self.portal_a.add_ui(ui);
         });
         ui.collapsing("Portal B", |ui| {
-            self.portal_b.add_ui(ui, false);
+            self.portal_b.add_ui(ui);
         });
 
         ui.add(egui::Slider::new(&mut self.doorification, 0.0..=1.0));
-        self.doorify_a_to_b();
+        self.doorify_b_to_a();
     }
 }
 

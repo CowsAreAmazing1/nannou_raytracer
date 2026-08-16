@@ -61,7 +61,7 @@ pub fn create_scenes() -> Vec<Scene> {
 
         scene.add_ellipse(Ellipse::new(
             vec3(3.0, 1.5, 0.0),
-            Quat::from_euler(XYZ, 0.0, 0.0, FRAC_PI_2),
+            Quat::from_euler(XYZ, 0.0, 0.0, -FRAC_PI_2),
             e_a,
             e_b,
             rim_thickness,
@@ -70,7 +70,7 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
         scene.add_ellipse(Ellipse::new(
             vec3(-3.0, 1.5, 0.0),
-            Quat::from_euler(XYZ, 0.0, 0.0, FRAC_PI_2),
+            Quat::from_euler(XYZ, 0.0, 0.0, -FRAC_PI_2),
             e_a,
             e_b,
             rim_thickness,
@@ -219,14 +219,12 @@ pub fn create_scenes() -> Vec<Scene> {
                 (0.0, 0.0, FRAC_PI_2),
                 e_a,
                 e_b,
-                true,
             ),
             Portal::new(
                 Vec3::new(0.51 + 1.5, 0.0 + 1.0, 0.0 - 5.0),
-                (0.0, 0.0, -FRAC_PI_2),
+                (0.0, 0.0, FRAC_PI_2),
                 e_a,
                 e_b,
-                false,
             ),
         ));
 
@@ -290,14 +288,12 @@ pub fn create_scenes() -> Vec<Scene> {
                 (0.0, 0.0, -FRAC_PI_2),
                 0.6,
                 1.0,
-                true,
             ),
             Portal::new(
                 Vec3::new(0.55, 0.0 + 1.0, 0.0 - 5.0),
                 (0.0, 0.0, FRAC_PI_2),
                 0.6,
                 1.0,
-                false,
             ),
         ));
         // scene.add_portal_pair(PortalPair::new(
@@ -338,8 +334,8 @@ pub fn create_scenes() -> Vec<Scene> {
         ));
 
         scene.add_portal_pair(PortalPair::new(
-            Portal::new(vec3(1.5, 1.0, 1.5), (0.0, 0.0, FRAC_PI_2), 0.7, 0.9, true),
-            Portal::new(vec3(0.0, 1.0, 0.0), (0.0, PI, FRAC_PI_2), 0.7, 0.9, false),
+            Portal::new(vec3(1.5, 1.0, 1.5), (0.0, 0.0, FRAC_PI_2), 0.7, 0.9),
+            Portal::new(vec3(0.0, 1.0, 0.0), (0.0, PI, FRAC_PI_2), 0.7, 0.9),
         ));
 
         scenes.push(scene);

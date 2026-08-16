@@ -6,7 +6,6 @@ use nannou::{
         Mat4, Quat, Vec3,
     },
 };
-use std::f32::consts::PI;
 
 use crate::scene::primitive::ellipse::{Ellipse, EllipseRaw};
 
@@ -49,13 +48,7 @@ impl Default for Portal {
 }
 
 impl Portal {
-    pub fn new(
-        position: Vec3,
-        rotation: (f32, f32, f32),
-        radius_a: f32,
-        radius_b: f32,
-        flipped: bool,
-    ) -> Self {
+    pub fn new(position: Vec3, rotation: (f32, f32, f32), radius_a: f32, radius_b: f32) -> Self {
         let (a, b, c) = rotation;
 
         let ellipse = Ellipse::new(
@@ -76,11 +69,20 @@ impl Portal {
             partner: None,
         };
 
-        portal.transform_from_self(flipped);
+        portal.transform_from_self();
+
+        assert!(
+            (portal.transformation_matrix * portal.inverse_transformation_matrix)
+                .to_cols_array()
+                .iter()
+                .zip(Mat4::IDENTITY.to_cols_array())
+                .all(|(a, b)| (a - b).abs() < 1e-6)
+        );
+
         portal
     }
 
-    pub fn from_ellipse(ellipse: Ellipse, flipped: bool) -> Self {
+    pub fn from_ellipse(ellipse: Ellipse) -> Self {
         let mut portal = Self {
             ellipse,
             transformation_matrix: Mat4::IDENTITY,
@@ -89,7 +91,7 @@ impl Portal {
             partner: None,
         };
 
-        portal.transform_from_self(flipped);
+        portal.transform_from_self();
         portal
     }
 
@@ -103,40 +105,32 @@ impl Portal {
             .expect("Lone portal!")
     }
 
-    pub fn set_transform(&mut self, position: Vec3, quat: Quat, flipped: bool) {
-        let mut rotation = Mat4::from_quat(quat);
+    pub fn set_transform(&mut self, position: Vec3, quat: Quat) {
+        let rotation = Mat4::from_quat(quat);
         let translation = Mat4::from_translation(position);
 
-        if flipped {
-            rotation *= Mat4::from_rotation_y(PI);
-        }
-
         let transform = translation * rotation;
 
         self.transformation_matrix = transform;
         self.inverse_transformation_matrix = transform.inverse();
     }
 
-    pub fn transform_from_self(&mut self, flipped: bool) {
-        let mut rotation = Mat4::from_quat(self.ellipse.quat());
+    pub fn transform_from_self(&mut self) {
+        let rotation = Mat4::from_quat(self.ellipse.quat());
         let translation = Mat4::from_translation(self.ellipse.center);
 
-        if flipped {
-            rotation *= Mat4::from_rotation_y(PI);
-        }
-
         let transform = translation * rotation;
 
         self.transformation_matrix = transform;
         self.inverse_transformation_matrix = transform.inverse();
     }
 
-    pub fn rotate_delta(&mut self, rot: EulerRot, dx: f32, dy: f32, dz: f32) {
+    pub fn _rotate_delta(&mut self, rot: EulerRot, dx: f32, dy: f32, dz: f32) {
         let delta_rotation = Quat::from_euler(rot, dx, dy, dz);
         let new_quat = delta_rotation * self.ellipse.quat;
 
         self.ellipse.quat = new_quat;
-        self.transform_from_self(false);
+        self.transform_from_self();
     }
 
     pub fn position(&self) -> Vec3 {
@@ -149,18 +143,18 @@ impl Portal {
     pub fn rotation(&self) -> Quat {
         let partner = self.partner();
         let q1 = self.ellipse.quat();
-        let q2 = partner.ellipse.quat() * Quat::from_rotation_z(PI);
+        let q2 = partner.ellipse.quat(); // * Quat::from_rotation_z(PI);
 
         q1.slerp(q2, self.doorification)
     }
 
-    fn doorify(&mut self, t: f32, flipped: bool) {
+    fn doorify(&mut self, t: f32) {
         self.doorification = t;
 
         let new_position = self.position();
         let new_rotation = self.rotation();
 
-        self.set_transform(new_position, new_rotation, flipped);
+        self.set_transform(new_position, new_rotation);
     }
 
     pub fn ellipse(&self) -> Ellipse {
@@ -242,14 +236,18 @@ impl PortalPair {
     }
 
     pub fn from_ellipses(ellipse_a: Ellipse, ellipse_b: Ellipse) -> Self {
-        let portal_a = Portal::from_ellipse(ellipse_a, true);
-        let portal_b = Portal::from_ellipse(ellipse_b, false);
+        let portal_a = Portal::from_ellipse(ellipse_a);
+        let portal_b = Portal::from_ellipse(ellipse_b);
 
         Self::new(portal_a, portal_b)
     }
 
-    pub fn doorify_a_to_b(&mut self) {
-        self.portal_a.doorify(self.doorification, true);
+    pub fn _doorify_a_to_b(&mut self) {
+        self.portal_a.doorify(self.doorification);
+    }
+
+    pub fn doorify_b_to_a(&mut self) {
+        self.portal_b.doorify(self.doorification);
     }
 }
 

@@ -313,19 +313,14 @@ fn ray_portal_intersect(ray: Ray, portal: Portal) -> f32 {
     return ray_ellipse_intersect(ray, portal.ellipse);
 }
 
-fn portal_ray(ray: Ray, hit_t: f32, in_portal: Portal, out_portal: Portal) -> Ray {
-    let world_hit_point = ray.origin + hit_t * ray.direction;
-
+fn portal_ray(ray: Ray, hit_point: vec3<f32>, in_portal: Portal, out_portal: Portal) -> Ray {
     // Intersection point
-    let base_hit_point = transform_point(world_hit_point, in_portal.inverse_transform_matrix);
+    let base_hit_point = transform_point(hit_point, in_portal.inverse_transform_matrix);
     let new_world_origin = transform_point(base_hit_point, out_portal.transform_matrix);
 
     // Outgoing direction vector
     let base_direction = transform_direction(ray.direction, in_portal.inverse_transform_matrix);
-
-    let flipped_base_direction = vec3<f32>(base_direction.x, -base_direction.y, base_direction.z);
-
-    var new_world_direction = normalize(transform_direction(flipped_base_direction, out_portal.transform_matrix));
+    var new_world_direction = transform_direction(base_direction, out_portal.transform_matrix);
 
     return Ray(new_world_origin, new_world_direction);
 }
@@ -339,85 +334,6 @@ struct HitInfo {
     normal: vec3<f32>,
     color: vec3<f32>,
     multiplier: f32,
-}
-
-fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
-    var current_ray = ray;
-    var final_hit_info: HitInfo;
-    final_hit_info.hit = false;
-    final_hit_info.t = 1000.0;
-    final_hit_info.multiplier = 1.0;
-
-    for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
-        // Send ray through the scene, ignoring portals
-        let hit_info = trace_ray_single_bounce(current_ray);
-
-        // Check for portal intersections
-        var closest_portal_t = hit_info.t;
-        var has_hit_portal = false;
-        var in_portal: Portal;
-        var out_portal: Portal;
-
-        for (var i: u32 = 0u; i < scene.portal_pair_count; i++) {
-            let portal_pair = scene.portal_pairs[i];
-
-            let t_a = ray_portal_intersect(current_ray, portal_pair.portal_a);
-            let t_b = ray_portal_intersect(current_ray, portal_pair.portal_b);
-
-            // Check portal A
-            if t_a > 0.001 && t_a < closest_portal_t {
-                closest_portal_t = t_a;
-                has_hit_portal = true;
-                in_portal = portal_pair.portal_a;
-                out_portal = portal_pair.portal_b;
-            }
-
-            // Check portal B
-            if t_b > 0.001 && t_b < closest_portal_t {
-                closest_portal_t = t_b;
-                has_hit_portal = true;
-                in_portal = portal_pair.portal_b;
-                out_portal = portal_pair.portal_a;
-            }
-        }
-
-        if has_hit_portal {
-            let portal_hit_point = current_ray.origin + closest_portal_t * current_ray.direction;
-
-            // Check if ray is entering portal from the front face.
-            // The portal normal points away from the front, so front-face entry has a negative dot.
-            if dot(current_ray.direction, in_portal.ellipse.normal) < 0.0 {
-
-                // Ray is entering portal - transform it
-                current_ray = portal_ray(current_ray, closest_portal_t, in_portal, out_portal);
-
-                // Add a border to make the portal more visible
-                let distance_from_center = distance_from_ellipse_center(in_portal.ellipse, portal_hit_point);
-                let border_start = 1.0 - in_portal.ellipse.border_thickness;
-
-                let border_factor = max((distance_from_center - border_start) / (1.0 - border_start), 0.0);
-                final_hit_info.multiplier *= 1.0 - border_factor;
-
-                continue; // Continue with transformed ray
-            } else {
-                // Ray is hitting portal from behind - render as ellipse
-                final_hit_info.hit = true;
-                final_hit_info.t = closest_portal_t;
-                final_hit_info.point = portal_hit_point;
-                final_hit_info.normal = in_portal.ellipse.normal;
-                final_hit_info.color = get_ellipse_color(in_portal.ellipse, portal_hit_point);
-                break;
-            }
-        } else {
-            // No portal hit, use the surface hit
-            let mult = final_hit_info.multiplier;
-            final_hit_info = hit_info;
-            final_hit_info.multiplier = mult;
-            break;
-        }
-    }
-
-    return final_hit_info;
 }
 
 /// Main single-bounce ray tracing function that checks intersections with the scene
@@ -484,6 +400,93 @@ fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
     }
 
     return hit_info;
+}
+
+fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
+    var current_ray = ray;
+    var final_hit_info: HitInfo;
+    final_hit_info.hit = false;
+    final_hit_info.t = 1000.0;
+    final_hit_info.multiplier = 1.0;
+
+    for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
+        // Send ray through the scene, ignoring portals
+        let hit_info = trace_ray_single_bounce(current_ray);
+
+        // Check for portal intersections
+        var closest_portal_t = hit_info.t;
+        var in_portal: Portal;
+        var out_portal: Portal;
+        var has_hit_portal = false;
+        var has_entered_portal = false;
+
+        for (var i: u32 = 0u; i < scene.portal_pair_count; i++) {
+            let portal_pair = scene.portal_pairs[i];
+
+            let t_a = ray_portal_intersect(current_ray, portal_pair.portal_a);
+            let t_b = ray_portal_intersect(current_ray, portal_pair.portal_b);
+
+            // Check portal A
+            if t_a > 0.001 && t_a < closest_portal_t {
+                has_hit_portal = true;
+
+                closest_portal_t = t_a;
+                in_portal = portal_pair.portal_a;
+                out_portal = portal_pair.portal_b;
+
+                if dot(current_ray.direction, portal_pair.portal_a.ellipse.normal) < 0.0 {
+                    has_entered_portal = true;
+                }
+            }
+
+            // Check portal B
+            if t_b > 0.001 && t_b < closest_portal_t {
+                has_hit_portal = true;
+
+                closest_portal_t = t_b;
+                in_portal = portal_pair.portal_b;
+                out_portal = portal_pair.portal_a;
+
+                if dot(current_ray.direction, portal_pair.portal_b.ellipse.normal) > 0.0 {
+                    has_entered_portal = true;
+                }
+            }
+        }
+
+        if has_hit_portal { // A portal was hit, maybe entered
+            let portal_hit_point = current_ray.origin + closest_portal_t * current_ray.direction;
+
+            if has_entered_portal {
+                // Transform the ray
+                current_ray = portal_ray(current_ray, portal_hit_point, in_portal, out_portal);
+
+                // Add a border to make the portal more visible
+                let distance_from_center = distance_from_ellipse_center(in_portal.ellipse, portal_hit_point);
+                let border_start = 1.0 - in_portal.ellipse.border_thickness;
+
+                let border_factor = max((distance_from_center - border_start) / (1.0 - border_start), 0.0);
+                let smooth_border_factor = smoothstep(0.0, 1.0, border_factor);
+                final_hit_info.multiplier *= 1.0 - smooth_border_factor;
+
+                continue; // Continue with transformed ray
+            } else {
+                // Ray is hitting portal from behind - render as ellipse
+                final_hit_info.hit = true;
+                final_hit_info.t = closest_portal_t;
+                final_hit_info.point = portal_hit_point;
+                final_hit_info.normal = in_portal.ellipse.normal;
+                final_hit_info.color = get_ellipse_color(in_portal.ellipse, portal_hit_point);
+                break;
+            }
+        } else { // No portals hit, just use the scene hit info
+            let mult = final_hit_info.multiplier;
+            final_hit_info = hit_info;
+            final_hit_info.multiplier = mult;
+            break;
+        }
+    }
+
+    return final_hit_info;
 }
 
 // Calculate reflection direction of an `incident` ray bouncing off a surface with normal `normal`

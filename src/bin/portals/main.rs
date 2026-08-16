@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use nannou::{glam::EulerRot::XYZ, prelude::*};
+use nannou::prelude::*;
 use nannou_egui::Egui;
 
 use crate::{
