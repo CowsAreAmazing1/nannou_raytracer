@@ -172,19 +172,13 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
     let queue = window.queue();
 
-    let (w, h) = window.inner_size_pixels();
+    let (w, h) = window.inner_size_points();
 
     // Prepare the current scene for the GPU. This is probably pretty expensive
     let scene_data = &model.scenes[model.current_scene];
     let raw_data = Scene::to_raw(scene_data);
 
-    let uniform = Uniform::build(
-        w as f32,
-        h as f32,
-        app.time,
-        model.current_scene,
-        &model.camera,
-    );
+    let uniform = Uniform::build(w, h, app.time, model.current_scene, &model.camera);
 
     // Upload to the GPU
     model.state.write_uniform(queue, uniform);
@@ -196,7 +190,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
 
     // Include the scale factor in the screen size
-    let screen_size = vec2(w as f32, h as f32) * window.scale_factor();
+    let screen_size = vec2(w, h);
 
     model.draw_debug_ray(&draw, screen_size);
     model.draw_portal_normals(&draw, screen_size);
