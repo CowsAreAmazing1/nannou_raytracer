@@ -1,5 +1,3 @@
-use std::f32::consts::FRAC_PI_2;
-
 use nannou::prelude::*;
 use nannou_egui::Egui;
 
@@ -143,9 +141,7 @@ fn mouse_moved(app: &App, model: &mut Model, pos: Point2) {
         let window = app.window(model.window_id).unwrap();
         let res = window.rect().wh() * 0.5;
 
-        model.camera.yaw += pos.x * model.camera.sensitivity;
-        model.camera.pitch = (model.camera.pitch + pos.y * model.camera.sensitivity)
-            .clamp(-FRAC_PI_2 + 0.01, FRAC_PI_2 - 0.01);
+        model.camera.rotate_view(pos);
 
         window.set_cursor_position_points(res.x, res.y).unwrap();
     }

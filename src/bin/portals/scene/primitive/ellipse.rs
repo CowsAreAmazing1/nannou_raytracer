@@ -4,7 +4,7 @@ use nannou::{
     glam::{Quat, Vec3},
 };
 
-use crate::util::quat_to;
+use crate::util::{WORLD_FORWARDS, quat_to};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Ellipse {
@@ -63,7 +63,7 @@ impl Ellipse {
     }
 
     pub fn normal(&self) -> Vec3 {
-        (self.quat() * Vec3::Y).normalize()
+        (self.quat() * WORLD_FORWARDS).normalize()
     }
 }
 

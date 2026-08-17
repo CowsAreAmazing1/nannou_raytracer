@@ -1,12 +1,15 @@
 use nannou::prelude::*;
 use std::f32::consts::{PI, TAU};
 
-use crate::{scene::SceneData, ui::Segment, util::WORLD_UP};
+use crate::{
+    scene::SceneData,
+    ui::Segment,
+    util::{WORLD_FORWARDS, WORLD_FRAME, WORLD_RIGHT, WORLD_UP},
+};
 
 pub struct Camera {
     pub position: Vec3,
-    pub yaw: f32,
-    pub pitch: f32,
+    pub rotation: Quat,
     pub speed: f32,
     pub sensitivity: f32,
     pub fov_multiplier: f32,
@@ -16,8 +19,7 @@ impl Camera {
     pub fn new() -> Self {
         Self {
             position: vec3(0.0, 1.0, 0.0),
-            yaw: -PI / 2.0,
-            pitch: 0.0,
+            rotation: Quat::from_rotation_y(-PI / 2.0),
             speed: 5.0,
             sensitivity: 0.003,
             fov_multiplier: 1.0,
@@ -25,23 +27,21 @@ impl Camera {
     }
 
     pub fn forward(&self) -> Vec3 {
-        vec3(
-            self.yaw.cos() * self.pitch.cos(),
-            self.pitch.sin(),
-            self.yaw.sin() * self.pitch.cos(),
-        )
+        (self.rotation * WORLD_FORWARDS).normalize()
     }
 
     pub fn right(&self) -> Vec3 {
-        vec3(
-            (self.yaw - PI / 2.0).cos(),
-            0.0,
-            (self.yaw - PI / 2.0).sin(),
-        )
+        (self.rotation * WORLD_RIGHT).normalize()
     }
 
     pub fn up(&self) -> Vec3 {
-        Vec3::Y // eventually `up` will include camera roll
+        (self.rotation * WORLD_UP).normalize()
+    }
+
+    /// Returns the forward, right, and up vectors of the camera. Used for debug rays
+    pub fn directions(&self) -> (Vec3, Vec3, Vec3) {
+        let (f, r, u) = WORLD_FRAME;
+        (self.rotation * f, self.rotation * r, self.rotation * u)
     }
 
     pub fn movement(&mut self, app: &App, dt: f32, scene_data: &SceneData) {
@@ -52,13 +52,13 @@ impl Camera {
             movement += self.forward();
         }
         if app.keys.down.contains(&Key::A) {
-            movement += self.right();
+            movement -= self.right();
         }
         if app.keys.down.contains(&Key::S) {
             movement -= self.forward();
         }
         if app.keys.down.contains(&Key::D) {
-            movement -= self.right();
+            movement += self.right();
         }
         if app.keys.down.contains(&Key::Space) {
             movement += self.up();
@@ -92,12 +92,15 @@ impl Camera {
         }
     }
 
-    /// Returns the forward, right, and up vectors of the camera. Used for debug rays. Change this in the new camera orientation fix
-    pub fn directions(&self) -> (Vec3, Vec3, Vec3) {
-        let forward = self.forward();
-        let right = forward.cross(WORLD_UP).normalize();
-        let up = right.cross(forward);
-        (forward, right, up)
+    pub fn rotate_view(&mut self, pos: Vec2) {
+        let delta = pos * self.sensitivity;
+
+        // Yaw around the world up axis ...
+        let lr = Quat::from_axis_angle(WORLD_UP, -delta.x);
+        // ... pitch around the camera's right axis to mimic spherical coords
+        let ud = Quat::from_axis_angle(self.right(), delta.y);
+
+        self.rotation = lr * ud * self.rotation;
     }
 
     fn shader_camera_right(&self) -> Vec3 {

@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use nannou::glam::{Quat, Vec3};
+use nannou::glam::{EulerRot::XYZ, Quat, Vec3};
 use nannou_egui::egui::{self, Align2, CollapsingHeader, Slider, Ui};
 
 use crate::{
@@ -22,8 +22,10 @@ impl Camera {
         });
 
         ui.collapsing("Camera Rotation", |ui| {
-            ui.add(Slider::new(&mut self.pitch, -10.0..=10.0));
-            ui.add(Slider::new(&mut self.yaw, -10.0..=10.0));
+            let (x, y, z) = self.rotation.to_euler(XYZ);
+            ui.label(format!("X: {}", x));
+            ui.label(format!("Y: {}", y));
+            ui.label(format!("Z: {}", z));
         });
     }
 }
