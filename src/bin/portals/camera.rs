@@ -48,31 +48,33 @@ impl Camera {
     pub fn movement(&mut self, app: &App, dt: f32, scene_data: &SceneData) {
         let old_position = self.position;
 
+        let (forward, right, up) = self.directions();
+
         let mut moved = false;
         let mut movement = Vec3::ZERO;
 
         if app.keys.down.contains(&Key::W) {
-            movement += self.forward();
+            movement += forward;
             moved = true;
         }
         if app.keys.down.contains(&Key::A) {
-            movement -= self.right();
+            movement -= right;
             moved = true;
         }
         if app.keys.down.contains(&Key::S) {
-            movement -= self.forward();
+            movement -= forward;
             moved = true;
         }
         if app.keys.down.contains(&Key::D) {
-            movement += self.right();
+            movement += right;
             moved = true;
         }
         if app.keys.down.contains(&Key::Space) {
-            movement += self.up();
+            movement += up;
             moved = true;
         }
         if app.keys.down.contains(&Key::LShift) {
-            movement -= self.up();
+            movement -= up;
             moved = true;
         }
 
@@ -118,9 +120,7 @@ impl Camera {
     pub fn rotate_view(&mut self, pos: Vec2) {
         let delta = pos * self.sensitivity;
 
-        // Yaw around the world up axis ...
-        let yaw_quat = Quat::from_axis_angle(WORLD_UP, -delta.x);
-        // ... pitch around the camera's right axis to mimic spherical coords
+        let yaw_quat = Quat::from_axis_angle(self.up(), -delta.x);
         let pitch_quat = Quat::from_axis_angle(self.right(), delta.y);
 
         self.rotation = yaw_quat * pitch_quat * self.rotation;
@@ -191,7 +191,6 @@ impl Camera {
             })
     }
 
-    /// This still doesnt quite work for some reason
     pub fn clip_ray_to_screen(
         &self,
         visible_point: Vec3,

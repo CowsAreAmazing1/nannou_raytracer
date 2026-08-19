@@ -133,7 +133,6 @@ fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) {
 
 fn mouse_moved(app: &App, model: &mut Model, pos: Point2) {
     if model.mouse_locked {
-        // Update camera immediately when mouse moves
         // `pos` is mouse position relative to the center of the screen. (documented where?)
         // This is exactly how much the mouse has moved since the previous frame,
         // as it was reset to the center then
