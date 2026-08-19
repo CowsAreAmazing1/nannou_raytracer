@@ -2,6 +2,7 @@ use nannou::prelude::*;
 use std::f32::consts::{PI, TAU};
 
 use crate::{
+    cpu_raytracer::check_camera_portal_teleport,
     scene::SceneData,
     ui::Segment,
     util::{WORLD_FORWARDS, WORLD_FRAME, WORLD_RIGHT, WORLD_UP},
@@ -47,24 +48,61 @@ impl Camera {
     pub fn movement(&mut self, app: &App, dt: f32, scene_data: &SceneData) {
         let old_position = self.position;
 
+        let mut moved = false;
         let mut movement = Vec3::ZERO;
+
         if app.keys.down.contains(&Key::W) {
             movement += self.forward();
+            moved = true;
         }
         if app.keys.down.contains(&Key::A) {
             movement -= self.right();
+            moved = true;
         }
         if app.keys.down.contains(&Key::S) {
             movement -= self.forward();
+            moved = true;
         }
         if app.keys.down.contains(&Key::D) {
             movement += self.right();
+            moved = true;
         }
         if app.keys.down.contains(&Key::Space) {
             movement += self.up();
+            moved = true;
         }
         if app.keys.down.contains(&Key::LShift) {
             movement -= self.up();
+            moved = true;
+        }
+
+        if moved {
+            movement = movement.normalize() * self.speed * dt;
+            let new_position = self.position + movement;
+
+            if let Some(teleported_pos) =
+                check_camera_portal_teleport(scene_data, old_position, new_position)
+            {
+                self.position = teleported_pos;
+            } else {
+                self.position = new_position;
+            }
+        }
+
+        let mut rotation = 0.0;
+        if app.keys.down.contains(&Key::E) {
+            rotation += 1.0;
+        }
+        if app.keys.down.contains(&Key::Q) {
+            rotation -= 1.0;
+        }
+        if rotation != 0.0 {
+            let angle = rotation * self.sensitivity;
+            let roll_quat = Quat::from_axis_angle(self.forward(), angle);
+
+            println!("{:?}", roll_quat);
+
+            self.rotation = roll_quat * self.rotation;
         }
 
         if app.keys.down.contains(&Key::Equals) {
@@ -74,21 +112,6 @@ impl Camera {
         if app.keys.down.contains(&Key::Minus) {
             self.fov_multiplier = (self.fov_multiplier - 0.01).max(0.1);
             // println!("FOV: {:.2}", self.fov_multiplier);
-        }
-
-        if movement.length() > 0.0 {
-            movement = movement.normalize() * self.speed * dt;
-            let new_position = self.position + movement;
-
-            if let Some(teleported_pos) = crate::cpu_raytracer::check_camera_portal_teleport(
-                scene_data,
-                old_position,
-                new_position,
-            ) {
-                self.position = teleported_pos;
-            } else {
-                self.position = new_position;
-            }
         }
     }
 
