@@ -139,7 +139,7 @@ pub fn create_scenes() -> Vec<Scene> {
             let offset = i as f32 * 0.5;
             let ellipse_a = Ellipse::new(
                 scenes[1].data.ellipses[0].center + vec3(0.0, 0.0, 3.0 * offset),
-                scenes[1].data.ellipses[0].quat(),
+                scenes[1].data.ellipses[0].quat,
                 e_a,
                 e_b,
                 rim_thickness,
@@ -148,7 +148,7 @@ pub fn create_scenes() -> Vec<Scene> {
             );
             let ellipse_b = Ellipse::new(
                 scenes[1].data.ellipses[1].center + vec3(0.0, 0.0, 3.0 * offset),
-                scenes[1].data.ellipses[1].quat(),
+                scenes[1].data.ellipses[1].quat,
                 e_a,
                 e_b,
                 rim_thickness,

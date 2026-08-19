@@ -119,11 +119,11 @@ impl Camera {
         let delta = pos * self.sensitivity;
 
         // Yaw around the world up axis ...
-        let lr = Quat::from_axis_angle(WORLD_UP, -delta.x);
+        let yaw_quat = Quat::from_axis_angle(WORLD_UP, -delta.x);
         // ... pitch around the camera's right axis to mimic spherical coords
-        let ud = Quat::from_axis_angle(self.right(), delta.y);
+        let pitch_quat = Quat::from_axis_angle(self.right(), delta.y);
 
-        self.rotation = lr * ud * self.rotation;
+        self.rotation = yaw_quat * pitch_quat * self.rotation;
     }
 
     fn shader_camera_right(&self) -> Vec3 {

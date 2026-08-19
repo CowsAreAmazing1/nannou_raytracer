@@ -116,7 +116,7 @@ impl Portal {
     }
 
     pub fn transform_from_self(&mut self) {
-        let rotation = Mat4::from_quat(self.ellipse.quat());
+        let rotation = Mat4::from_quat(self.ellipse.quat);
         let translation = Mat4::from_translation(self.ellipse.center);
 
         let transform = translation * rotation;
@@ -142,8 +142,8 @@ impl Portal {
 
     pub fn rotation(&self) -> Quat {
         let partner = self.partner();
-        let q1 = self.ellipse.quat();
-        let q2 = partner.ellipse.quat(); // * Quat::from_rotation_z(PI);
+        let q1 = self.ellipse.quat;
+        let q2 = partner.ellipse.quat; // * Quat::from_rotation_z(PI);
 
         q1.slerp(q2, self.doorification)
     }

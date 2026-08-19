@@ -4,7 +4,7 @@ use nannou::{
     glam::{Quat, Vec3},
 };
 
-use crate::util::WORLD_UP;
+use crate::util::vec_to;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Plane {
@@ -59,7 +59,7 @@ impl Plane {
     }
 
     pub fn normal(&self) -> Vec3 {
-        (self.quat * WORLD_UP).normalize()
+        vec_to(self.quat)
     }
 }
 
