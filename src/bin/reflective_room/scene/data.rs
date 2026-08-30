@@ -1,7 +1,10 @@
-use nannou::glam::{Quat, Vec2, vec2, vec3};
+use nannou::glam::{Quat, Vec2, Vec3, vec2, vec3};
 
 use crate::{
-    scene::{Scene, primitive::plane::Plane},
+    scene::{
+        Scene,
+        primitive::{cube::Cube, plane::Plane},
+    },
     util::{WORLD_UP, quat_to},
 };
 
@@ -43,11 +46,23 @@ pub fn create_scenes() -> Vec<Scene> {
             let quat = quats[i];
             let color = colors[i];
 
-            scene.add_plane(Plane::new(point, quat, color));
+            scene.add_plane(Plane::new_reflective(point, quat, color, 0.5));
         }
 
-        scene.add_plane(Plane::new(5.0 * WORLD_UP, Quat::IDENTITY, (0.8, 0.8, 0.8)));
-        scene.add_plane(Plane::new(-5.0 * WORLD_UP, Quat::IDENTITY, (0.8, 0.8, 0.8)));
+        scene.add_plane(Plane::new_reflective(
+            5.0 * WORLD_UP,
+            Quat::IDENTITY,
+            (0.8, 0.8, 0.8),
+            0.5,
+        ));
+        scene.add_plane(Plane::new_reflective(
+            -5.0 * WORLD_UP,
+            Quat::IDENTITY,
+            (0.8, 0.8, 0.8),
+            0.5,
+        ));
+
+        scene.add_cube(Cube::new(Vec3::ZERO, 0.5, (0.0, 1.0, 0.0)));
 
         scenes.push(scene);
     }

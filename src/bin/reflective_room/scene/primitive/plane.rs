@@ -14,6 +14,7 @@ pub struct Plane {
     pub width: f32,
     pub height: f32,
     pub is_infinite: bool,
+    pub reflectivity: f32,
 }
 
 impl Default for Plane {
@@ -25,6 +26,7 @@ impl Default for Plane {
             width: 1.0,
             height: 1.0,
             is_infinite: true,
+            reflectivity: 0.0,
         }
     }
 }
@@ -38,6 +40,7 @@ impl Plane {
             width: 0.0,
             height: 0.0,
             is_infinite: true,
+            reflectivity: 0.0,
         }
     }
 
@@ -55,6 +58,43 @@ impl Plane {
             width,
             height,
             is_infinite: false,
+            reflectivity: 0.0,
+        }
+    }
+
+    pub fn new_reflective<P: Into<Vec3>, C: Into<Srgb>>(
+        point: P,
+        quat: Quat,
+        color: C,
+        reflectivity: f32,
+    ) -> Self {
+        Self {
+            point: point.into(),
+            quat,
+            color: color.into(),
+            width: 0.0,
+            height: 0.0,
+            is_infinite: true,
+            reflectivity,
+        }
+    }
+
+    pub fn new_finite_reflective<P: Into<Vec3>, C: Into<Srgb>>(
+        point: P,
+        quat: Quat,
+        color: C,
+        width: f32,
+        height: f32,
+        reflectivity: f32,
+    ) -> Self {
+        Self {
+            point: point.into(),
+            quat,
+            color: color.into(),
+            width,
+            height,
+            is_infinite: false,
+            reflectivity,
         }
     }
 
@@ -75,7 +115,7 @@ pub struct PlaneRaw {
     width: f32,
     height: f32,
     is_infinite: f32, // 1.0 for infinite, 0.0 for finite
-    _padding4: f32,
+    reflectivity: f32,
 }
 
 impl Default for PlaneRaw {
@@ -90,7 +130,7 @@ impl Default for PlaneRaw {
             width: 1.0,
             height: 1.0,
             is_infinite: 1.0,
-            _padding4: 0.0,
+            reflectivity: 0.0,
         }
     }
 }
@@ -107,7 +147,7 @@ impl From<Plane> for PlaneRaw {
             width: plane.width,
             height: plane.height,
             is_infinite: if plane.is_infinite { 1.0 } else { 0.0 },
-            _padding4: 0.0,
+            reflectivity: plane.reflectivity,
         }
     }
 }
@@ -124,7 +164,7 @@ impl From<&Plane> for PlaneRaw {
             width: plane.width,
             height: plane.height,
             is_infinite: if plane.is_infinite { 1.0 } else { 0.0 },
-            _padding4: 0.0,
+            reflectivity: plane.reflectivity,
         }
     }
 }

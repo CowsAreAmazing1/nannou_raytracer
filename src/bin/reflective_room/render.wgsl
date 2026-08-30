@@ -20,7 +20,7 @@ struct Plane {
     width: f32,
     height: f32,
     is_infinite: f32, // 0.0 for finite, 1.0 for infinite
-    _padding4: f32,
+    reflectivity: f32,
 }
 
 struct Ellipse {
@@ -213,6 +213,8 @@ fn add_checkerboard_pattern(ray: Ray, plane: Plane, t: f32, hit_info: ptr<functi
         } else {
             (*hit_info).color = plane.color * 0.5; //  - vec3<f32>(0.25, 0.25, 0.25);
         }
+
+        (*hit_info).reflectivity = plane.reflectivity;
     }
 }
 
@@ -305,6 +307,7 @@ struct HitInfo {
     normal: vec3<f32>,
     color: vec3<f32>,
     multiplier: f32,
+    reflectivity: f32,
 }
 
 /// Main single-bounce ray tracing function that checks intersections with the scene
@@ -313,6 +316,7 @@ fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
     hit_info.hit = false;
     hit_info.t = 1000.0;
     hit_info.multiplier = 1.0;
+    hit_info.reflectivity = 0.0;
 
     for (var i: u32 = 0u; i < scene.plane_count; i++) {
         let plane = scene.planes[i];
@@ -379,97 +383,31 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
     final_hit_info.hit = false;
     final_hit_info.t = 1000.0;
     final_hit_info.multiplier = 1.0;
+    final_hit_info.reflectivity = 0.0;
 
-    let hit_info = trace_ray_single_bounce(current_ray);
+    for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
+        // Send ray through the scene
+        let hit_info = trace_ray_single_bounce(current_ray);
 
-    return hit_info;
+        if hit_info.reflectivity > 0.0 {
+            // Hit surface was reflective
+            // Calculate reflection direction
+            let reflected_direction = reflect(current_ray.direction, hit_info.normal);
+            current_ray.origin = hit_info.point + 0.001 * reflected_direction; // Offset to avoid self-intersection
+            current_ray.direction = reflected_direction;
 
-    // for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
-    //     // Send ray through the scene, ignoring portals
+            // Update multiplier for color contribution
+            final_hit_info.reflectivity = hit_info.reflectivity;
+            final_hit_info.multiplier *= hit_info.reflectivity;
+        } else { // Hit surface was not reflective, just use the hit info
+            let mult = final_hit_info.multiplier;
+            final_hit_info = hit_info; // <-
+            final_hit_info.multiplier = mult;
+            break;
+        }
+    }
 
-    //     // Check for portal intersections
-    //     var closest_portal_t = hit_info.t;
-    //     var in_portal: Portal;
-    //     var out_portal: Portal;
-    //     var has_hit_portal = false;
-    //     var in_is_a: bool;
-    //     var has_entered_portal = false;
-
-    //     for (var i: u32 = 0u; i < scene.portal_pair_count; i++) {
-    //         let portal_pair = scene.portal_pairs[i];
-
-    //         let t_a = ray_portal_intersect(current_ray, portal_pair.portal_a);
-    //         let t_b = ray_portal_intersect(current_ray, portal_pair.portal_b);
-
-    //         // Check portal A
-    //         if t_a > 0.001 && t_a < closest_portal_t {
-    //             closest_portal_t = t_a;
-    //             in_portal = portal_pair.portal_a;
-    //             out_portal = portal_pair.portal_b;
-
-    //             has_hit_portal = true;
-    //             in_is_a = true;
-
-    //             if dot(current_ray.direction, portal_pair.portal_a.ellipse.normal) < 0.0 {
-    //                 has_entered_portal = true;
-    //             }
-    //         }
-
-    //         // Check portal B
-    //         if t_b > 0.001 && t_b < closest_portal_t {
-    //             closest_portal_t = t_b;
-    //             in_portal = portal_pair.portal_b;
-    //             out_portal = portal_pair.portal_a;
-
-    //             has_hit_portal = true;
-    //             in_is_a = false;
-
-    //             if dot(current_ray.direction, portal_pair.portal_b.ellipse.normal) > 0.0 {
-    //                 has_entered_portal = true;
-    //             }
-    //         }
-    //     }
-
-    //     if has_hit_portal { // A portal was hit, maybe entered
-    //         if in_is_a {
-    //             has_entered_portal = dot(current_ray.direction, in_portal.ellipse.normal) < 0.0;
-    //         } else {
-    //             has_entered_portal = dot(current_ray.direction, in_portal.ellipse.normal) > 0.0;
-    //         }
-
-    //         let portal_hit_point = current_ray.origin + closest_portal_t * current_ray.direction;
-
-    //         if has_entered_portal {
-    //             // Transform the ray
-    //             current_ray = portal_ray(current_ray, portal_hit_point, in_portal, out_portal);
-
-    //             // Add a border to make the portal more visible
-    //             let distance_from_center = distance_from_ellipse_center(in_portal.ellipse, portal_hit_point);
-    //             let border_start = 1.0 - in_portal.ellipse.border_thickness;
-
-    //             let border_factor = max((distance_from_center - border_start) / (1.0 - border_start), 0.0);
-    //             let smooth_border_factor = smoothstep(0.0, 1.0, border_factor);
-    //             final_hit_info.multiplier *= 1.0 - smooth_border_factor;
-
-    //             continue; // Continue with transformed ray
-    //         } else {
-    //             // Ray is hitting portal from behind - render as ellipse
-    //             final_hit_info.hit = true;
-    //             final_hit_info.t = closest_portal_t;
-    //             final_hit_info.point = portal_hit_point;
-    //             final_hit_info.normal = in_portal.ellipse.normal;
-    //             final_hit_info.color = get_ellipse_color(in_portal.ellipse, portal_hit_point);
-    //             break;
-    //         }
-    //     } else { // No portals hit, just use the scene hit info
-    //         let mult = final_hit_info.multiplier;
-    //         final_hit_info = hit_info; // <-
-    //         final_hit_info.multiplier = mult;
-    //         break;
-    //     }
-    // }
-
-    // return final_hit_info;
+    return final_hit_info;
 }
 
 // Calculate reflection direction of an `incident` ray bouncing off a surface with normal `normal`
@@ -502,7 +440,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let primary_ray = Ray(ray_origin, ray_direction);
 
     // Trace the ray
-    let hit_info = trace_ray(primary_ray, 150u);
+    let hit_info = trace_ray(primary_ray, 3u);
 
     var color = vec3<f32>(0.1, 0.2, 0.4); // Blue gradient background
 
