@@ -389,7 +389,11 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
         // Send ray through the scene
         let hit_info = trace_ray_single_bounce(current_ray);
 
-        if hit_info.reflectivity > 0.0 {
+        if bounce == max_bounces - 1u {
+            // Last bounce, use the hit info
+            final_hit_info = hit_info;
+            break;
+        } else if hit_info.reflectivity > 0.0 {
             // Hit surface was reflective
             // Calculate reflection direction
             let reflected_direction = reflect(current_ray.direction, hit_info.normal);
