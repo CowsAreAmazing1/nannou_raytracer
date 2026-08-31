@@ -1,0 +1,72 @@
+use bytemuck::{Pod, Zeroable};
+use nannou::{color::Srgb, glam::Vec3};
+
+use crate::{
+    scene::primitive::plane::{Plane, PlaneRaw},
+    util::quat_to,
+};
+
+#[derive(Default, Debug, Clone, Copy)]
+pub struct Cube {
+    /// Position of the center of the cube
+    pub center: Vec3,
+    /// Edge length
+    pub size: f32,
+    pub color: Srgb,
+}
+
+impl Cube {
+    pub fn new<P: Into<Vec3>, C: Into<Srgb>>(center: P, size: f32, color: C) -> Self {
+        Self {
+            center: center.into(),
+            size,
+            color: color.into(),
+        }
+    }
+
+    pub fn planes(&self) -> [Plane; 6] {
+        let axes = [Vec3::X, Vec3::Y, Vec3::Z, -Vec3::X, -Vec3::Y, -Vec3::Z];
+
+        std::array::from_fn(|i| {
+            let axis = axes[i];
+            let point = self.center + axis * (0.5 * self.size);
+            let quat = quat_to(axis);
+
+            Plane::new_finite(point, quat, self.color, self.size, self.size)
+        })
+    }
+
+    pub fn planes_raw(&self) -> [PlaneRaw; 6] {
+        let axes = [Vec3::X, Vec3::Y, Vec3::Z, -Vec3::X, -Vec3::Y, -Vec3::Z];
+
+        std::array::from_fn(|i| {
+            let axis = axes[i];
+            let point = self.center + axis * (0.5 * self.size);
+            let quat = quat_to(axis);
+
+            Plane::new_finite(point, quat, self.color, self.size, self.size).into()
+        })
+    }
+}
+
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone, Pod, Zeroable)]
+pub struct CubeRaw {
+    planes: [PlaneRaw; 6],
+}
+
+impl From<Cube> for CubeRaw {
+    fn from(cube: Cube) -> Self {
+        let planes = cube.planes_raw();
+
+        Self { planes }
+    }
+}
+
+impl From<&Cube> for CubeRaw {
+    fn from(cube: &Cube) -> Self {
+        let planes = cube.planes_raw();
+
+        Self { planes }
+    }
+}
