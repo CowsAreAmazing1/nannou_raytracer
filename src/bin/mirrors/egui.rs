@@ -63,6 +63,8 @@ impl Plane {
 
             self.quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, PI * a, PI * b, PI * c);
         });
+
+        ui.add(Slider::new(&mut self.reflectivity, 0.0..=1.0).text("Reflectivity"));
     }
 }
 
@@ -113,6 +115,8 @@ impl Ellipse {
             ui.label("Radius b");
             ui.add(Slider::new(&mut self.radius_b, 0.0..=1.0));
         });
+
+        ui.add(Slider::new(&mut self.reflectivity, 0.0..=1.0).text("Reflectivity"));
     }
 }
 
