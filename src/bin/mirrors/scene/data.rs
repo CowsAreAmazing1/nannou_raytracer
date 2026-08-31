@@ -128,7 +128,7 @@ pub fn create_scenes() -> Vec<Scene> {
                 color_convert(HOTPINK),
             )
             .make_finite(2.0, 3.0)
-            .make_reflective(0.5),
+            .make_reflective(0.9),
         );
 
         scene.add_cube(Cube::new(-2.0 * Vec3::Y, 0.3, color_convert(PURPLE)).make_reflective(0.5));

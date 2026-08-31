@@ -8,7 +8,7 @@ use crate::{
     camera::Camera,
     scene::{
         portal::{Portal, PortalPair},
-        primitive::{ellipse::Ellipse, plane::Plane},
+        primitive::{cube::Cube, ellipse::Ellipse, plane::Plane},
     },
 };
 
@@ -135,6 +135,30 @@ impl Ellipse {
     }
 }
 
+impl Cube {
+    fn add_ui(&mut self, ui: &mut Ui) {
+        ui.collapsing("Center", |ui| {
+            ui.horizontal(|ui| {
+                ui.label("x");
+                ui.add(Slider::new(&mut self.center.x, -10.0..=10.0));
+            });
+            ui.horizontal(|ui| {
+                ui.label("y");
+                ui.add(Slider::new(&mut self.center.y, -10.0..=10.0));
+            });
+            ui.horizontal(|ui| {
+                ui.label("z");
+                ui.add(Slider::new(&mut self.center.z, -10.0..=10.0));
+            });
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Size");
+            ui.add(Slider::new(&mut self.size, 0.0..=2.0));
+        });
+    }
+}
+
 impl Portal {
     fn add_ui(&mut self, ui: &mut Ui) {
         self.ellipse.add_ui(ui);
@@ -194,6 +218,19 @@ impl Model {
                                     let ellipse_label = format!("Ellipse {}", ellipse_idx + 1);
                                     ui.collapsing(&ellipse_label, |ui| {
                                         ellipse.add_ui(ui);
+                                    });
+                                }
+                            });
+                        }
+
+                        // Cube UI
+                        if !self.scenes[self.current_scene].data.cubes.is_empty() {
+                            ui.collapsing("Cubes", |ui| {
+                                let cubes = &mut self.scenes[self.current_scene].data.cubes;
+                                for (cube_idx, cube) in cubes.iter_mut().enumerate() {
+                                    let cube_label = format!("Cube {}", cube_idx + 1);
+                                    ui.collapsing(&cube_label, |ui| {
+                                        cube.add_ui(ui);
                                     });
                                 }
                             });

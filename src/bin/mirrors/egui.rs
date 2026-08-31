@@ -6,7 +6,7 @@ use nannou_egui::egui::{self, Align2, CollapsingHeader, Slider, Ui};
 use crate::{
     Model,
     camera::Camera,
-    scene::primitive::{ellipse::Ellipse, plane::Plane},
+    scene::primitive::{cube::Cube, ellipse::Ellipse, plane::Plane},
 };
 
 impl Camera {
@@ -64,7 +64,10 @@ impl Plane {
             self.quat = Quat::from_euler(nannou::glam::EulerRot::XYZ, PI * a, PI * b, PI * c);
         });
 
-        ui.add(Slider::new(&mut self.reflectivity, 0.0..=1.0).text("Reflectivity"));
+        ui.horizontal(|ui| {
+            ui.label("Reflectivity");
+            ui.add(Slider::new(&mut self.reflectivity, 0.0..=1.0));
+        });
     }
 }
 
@@ -116,7 +119,34 @@ impl Ellipse {
             ui.add(Slider::new(&mut self.radius_b, 0.0..=1.0));
         });
 
-        ui.add(Slider::new(&mut self.reflectivity, 0.0..=1.0).text("Reflectivity"));
+        ui.horizontal(|ui| {
+            ui.label("Reflectivity");
+            ui.add(Slider::new(&mut self.reflectivity, 0.0..=1.0));
+        });
+    }
+}
+
+impl Cube {
+    fn add_ui(&mut self, ui: &mut Ui) {
+        ui.collapsing("Center", |ui| {
+            ui.horizontal(|ui| {
+                ui.label("x");
+                ui.add(Slider::new(&mut self.center.x, -10.0..=10.0));
+            });
+            ui.horizontal(|ui| {
+                ui.label("y");
+                ui.add(Slider::new(&mut self.center.y, -10.0..=10.0));
+            });
+            ui.horizontal(|ui| {
+                ui.label("z");
+                ui.add(Slider::new(&mut self.center.z, -10.0..=10.0));
+            });
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Size");
+            ui.add(Slider::new(&mut self.size, 0.0..=2.0));
+        });
     }
 }
 
@@ -157,6 +187,19 @@ impl Model {
                                     let ellipse_label = format!("Ellipse {}", ellipse_idx + 1);
                                     ui.collapsing(&ellipse_label, |ui| {
                                         ellipse.add_ui(ui);
+                                    });
+                                }
+                            });
+                        }
+
+                        // Cube UI
+                        if !self.scenes[self.current_scene].data.cubes.is_empty() {
+                            ui.collapsing("Cubes", |ui| {
+                                let cubes = &mut self.scenes[self.current_scene].data.cubes;
+                                for (cube_idx, cube) in cubes.iter_mut().enumerate() {
+                                    let cube_label = format!("Cube {}", cube_idx + 1);
+                                    ui.collapsing(&cube_label, |ui| {
+                                        cube.add_ui(ui);
                                     });
                                 }
                             });
