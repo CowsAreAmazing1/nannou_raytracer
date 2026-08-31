@@ -7,7 +7,7 @@ struct Uniforms {
     camera_pos: vec3<f32>,
     fov: f32,
     camera_dir: vec3<f32>,
-    _padding: f32,
+    max_bounces: u32,
 }
 
 struct Plane {
@@ -444,7 +444,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let primary_ray = Ray(ray_origin, ray_direction);
 
     // Trace the ray
-    let hit_info = trace_ray(primary_ray, 3u);
+    let hit_info = trace_ray(primary_ray, uniforms.max_bounces);
 
     var color = vec3<f32>(0.1, 0.2, 0.4); // Blue gradient background
 

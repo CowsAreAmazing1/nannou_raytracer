@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use nannou::glam::{Quat, Vec3};
+use nannou::glam::Quat;
 use nannou_egui::egui::{self, Align2, CollapsingHeader, Slider, Ui};
 
 use crate::{
@@ -161,9 +161,7 @@ impl Model {
 
                 ui.separator();
 
-                if ui.add(egui::Button::new("camera to origin")).clicked() {
-                    self.camera.position = Vec3::ZERO;
-                }
+                ui.add(Slider::new(&mut self.max_bounces, 1..=10).text("Max Reflections"));
             });
     }
 }

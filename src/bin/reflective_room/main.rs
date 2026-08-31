@@ -29,6 +29,7 @@ struct Model {
     scenes: Vec<Scene>,
     camera: Camera,
     mouse_locked: bool,
+    max_bounces: u32,
 
     debug_ray_emitters: Vec<DebugRayEmitter>,
 
@@ -77,6 +78,7 @@ fn model(app: &App) -> Model {
         scenes,
         camera: Camera::new(),
         mouse_locked: false,
+        max_bounces: 3,
 
         debug_ray_emitters: Vec::new(),
 
@@ -175,7 +177,14 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let scene_data = &model.scenes[model.current_scene];
     let raw_data = Scene::to_raw(scene_data);
 
-    let uniform = Uniform::build(w, h, app.time, model.current_scene, &model.camera);
+    let uniform = Uniform::build(
+        w,
+        h,
+        app.time,
+        model.current_scene,
+        &model.camera,
+        model.max_bounces,
+    );
 
     // Upload to the GPU
     model.state.write_uniform(queue, uniform);

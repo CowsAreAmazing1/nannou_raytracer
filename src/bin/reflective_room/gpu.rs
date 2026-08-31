@@ -15,11 +15,18 @@ pub struct Uniform {
     camera_pos: [f32; 3],
     fov: f32,
     camera_dir: [f32; 3],
-    _padding: f32,
+    max_bounces: u32,
 }
 
 impl Uniform {
-    pub fn build(w: f32, h: f32, time: f32, current_scene: usize, camera: &Camera) -> Self {
+    pub fn build(
+        w: f32,
+        h: f32,
+        time: f32,
+        current_scene: usize,
+        camera: &Camera,
+        max_bounces: u32,
+    ) -> Self {
         let camera_pos = camera.position.to_array();
         let camera_dir = camera.forward().to_array();
 
@@ -30,7 +37,7 @@ impl Uniform {
             camera_pos,
             fov: camera.fov_multiplier,
             camera_dir,
-            _padding: 0.0,
+            max_bounces,
         }
     }
 }
