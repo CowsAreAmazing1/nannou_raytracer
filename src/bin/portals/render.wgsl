@@ -8,6 +8,10 @@ struct Uniforms {
     fov: f32,
     camera_dir: vec3<f32>,
     _padding: f32,
+    camera_right: vec3<f32>,
+    _padding_right: f32,
+    camera_up: vec3<f32>,
+    _padding_up: f32,
 }
 
 struct Plane {
@@ -510,13 +514,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let ray_origin = uniforms.camera_pos;
 
-    // Use the camera_dir from uniforms
     let camera_forward = normalize(uniforms.camera_dir);
-
-    // Create camera coordinate system
-    let world_up = vec3<f32>(0.0, 1.0, 0.0);
-    let camera_right = normalize(cross(camera_forward, world_up));
-    let camera_up = cross(camera_right, camera_forward);
+    let camera_right = normalize(uniforms.camera_right);
+    let camera_up = normalize(uniforms.camera_up);
 
     // Calculate ray direction
     let ray_direction = normalize(

@@ -4,7 +4,7 @@ use nannou::{
     glam::{Quat, Vec3},
 };
 
-use crate::util::quat_to;
+use crate::util::{quat_to, vec_to};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Ellipse {
@@ -58,12 +58,8 @@ impl Ellipse {
         }
     }
 
-    pub fn quat(&self) -> Quat {
-        self.quat
-    }
-
     pub fn normal(&self) -> Vec3 {
-        (self.quat() * Vec3::Y).normalize()
+        vec_to(self.quat)
     }
 }
 
@@ -108,7 +104,7 @@ impl From<Ellipse> for EllipseRaw {
         Self {
             center: value.center.to_array(),
             _padding1: 0.0,
-            normal: (value.quat() * Vec3::Y).normalize().to_array(),
+            normal: vec_to(value.quat).to_array(),
             _padding2: 0.0,
             radius_a: value.radius_a,
             radius_b: value.radius_b,
@@ -127,7 +123,7 @@ impl From<&Ellipse> for EllipseRaw {
         Self {
             center: value.center.to_array(),
             _padding1: 0.0,
-            normal: (value.quat() * Vec3::Y).normalize().to_array(),
+            normal: vec_to(value.quat).to_array(),
             _padding2: 0.0,
             radius_a: value.radius_a,
             radius_b: value.radius_b,

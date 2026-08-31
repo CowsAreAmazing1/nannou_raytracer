@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use nannou::glam::{Quat, Vec3};
+use nannou::glam::{EulerRot::XYZ, Quat, Vec3};
 use nannou_egui::egui::{self, Align2, CollapsingHeader, Slider, Ui};
 
 use crate::{
@@ -14,6 +14,20 @@ use crate::{
 
 impl Camera {
     fn add_ui(&mut self, ui: &mut Ui) {
+        let roll_text = if self.use_free_roll_camera {
+            "free"
+        } else {
+            "clamped"
+        };
+
+        ui.horizontal(|ui| {
+            ui.label("Use ");
+            if ui.button(roll_text).clicked() {
+                self.use_free_roll_camera = !self.use_free_roll_camera;
+            }
+            ui.label(" roll camera")
+        });
+
         let position = &mut self.position;
         ui.collapsing("Camera Position", |ui| {
             ui.add(Slider::new(&mut position.x, -10.0..=10.0));
@@ -22,8 +36,10 @@ impl Camera {
         });
 
         ui.collapsing("Camera Rotation", |ui| {
-            ui.add(Slider::new(&mut self.pitch, -10.0..=10.0));
-            ui.add(Slider::new(&mut self.yaw, -10.0..=10.0));
+            let (x, y, z) = self.rotation.to_euler(XYZ);
+            ui.label(format!("X: {}", x));
+            ui.label(format!("Y: {}", y));
+            ui.label(format!("Z: {}", z));
         });
     }
 }

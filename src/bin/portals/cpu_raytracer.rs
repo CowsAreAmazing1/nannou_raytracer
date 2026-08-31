@@ -7,7 +7,7 @@ use crate::{
         primitive::{ellipse::Ellipse, plane::Plane},
     },
     ui::Segment,
-    util::WORLD_UP,
+    util::{WORLD_FORWARDS, WORLD_RIGHT, WORLD_UP},
 };
 
 pub struct DebugRay {
@@ -289,25 +289,24 @@ pub fn check_camera_portal_teleport(
     scene: &SceneData,
     old_pos: Vec3,
     new_pos: Vec3,
-) -> Option<Vec3> {
+    camera_rotation: Quat,
+) -> Option<(Vec3, Quat)> {
     let movement_vec = new_pos - old_pos;
     let movement_length = movement_vec.length();
-
-    // if movement_length < 0.001 {
-    //     return None;
-    // }
+    if movement_length <= f32::EPSILON || !movement_length.is_finite() {
+        return None;
+    }
 
     let ray_direction = movement_vec / movement_length;
 
-    for i in 0..scene.portal_pair_count {
-        let portal_pair = &scene.portal_pairs[i as usize];
-
+    for pair in scene.portal_pairs.iter() {
         if let Some(teleport_pos) = check_single_portal_teleport(
             old_pos,
             ray_direction,
             movement_length,
-            &portal_pair.portal_a,
-            &portal_pair.portal_b,
+            &pair.portal_a,
+            &pair.portal_b,
+            camera_rotation,
             |d| d < 0.0,
         ) {
             return Some(teleport_pos);
@@ -317,8 +316,9 @@ pub fn check_camera_portal_teleport(
             old_pos,
             ray_direction,
             movement_length,
-            &portal_pair.portal_b,
-            &portal_pair.portal_a,
+            &pair.portal_b,
+            &pair.portal_a,
+            camera_rotation,
             |d| d > 0.0,
         ) {
             return Some(teleport_pos);
@@ -328,16 +328,19 @@ pub fn check_camera_portal_teleport(
     None
 }
 
+/// Returns the new position of the "ray" after teleportation, if it intersects a portal. Otherwise, returns None.
+/// `comp` is a comparison function used to determine if the "ray" is approaching the portal from the correct side.
+/// This function is currently only used for camera teleports.
 fn check_single_portal_teleport(
     ray_origin: Vec3,
     ray_direction: Vec3,
     max_distance: f32,
     in_portal: &Portal,
     out_portal: &Portal,
+    camera_rotation: Quat,
     comp: fn(f32) -> bool,
-) -> Option<Vec3> {
+) -> Option<(Vec3, Quat)> {
     let ellipse = in_portal.ellipse();
-
     let t = ray_ellipse_intersect_cpu(ray_origin, ray_direction, ellipse);
 
     if t > 0.001 && t < max_distance {
@@ -351,9 +354,33 @@ fn check_single_portal_teleport(
             let transformed_direction =
                 transform_direction_through_portal(ray_direction, in_portal, out_portal);
 
-            return Some(teleported_point + remaining_distance * transformed_direction);
+            let teleported_position =
+                teleported_point + remaining_distance * transformed_direction;
+            let teleported_rotation = transform_camera_rotation_through_portal(
+                camera_rotation,
+                in_portal,
+                out_portal,
+            );
+
+            return Some((teleported_position, teleported_rotation));
         }
     }
 
     None
+}
+
+fn transform_camera_rotation_through_portal(
+    camera_rotation: Quat,
+    in_portal: &Portal,
+    out_portal: &Portal,
+) -> Quat {
+    let camera_forward = camera_rotation * WORLD_FORWARDS;
+    let camera_right = camera_rotation * WORLD_RIGHT;
+    let camera_up = camera_rotation * WORLD_UP;
+
+    let mapped_forward = transform_direction_through_portal(camera_forward, in_portal, out_portal);
+    let mapped_right = transform_direction_through_portal(camera_right, in_portal, out_portal);
+    let mapped_up = transform_direction_through_portal(camera_up, in_portal, out_portal);
+
+    Quat::from_mat3(&Mat3::from_cols(mapped_forward, mapped_up, mapped_right)).normalize()
 }

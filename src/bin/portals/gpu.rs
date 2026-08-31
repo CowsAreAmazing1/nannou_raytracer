@@ -16,12 +16,16 @@ pub struct Uniform {
     fov: f32,
     camera_dir: [f32; 3],
     _padding: f32,
+    camera_right: [f32; 3],
+    _padding_right: f32,
+    camera_up: [f32; 3],
+    _padding_up: f32,
 }
 
 impl Uniform {
     pub fn build(w: f32, h: f32, time: f32, current_scene: usize, camera: &Camera) -> Self {
         let camera_pos = camera.position.to_array();
-        let camera_dir = camera.forward().to_array();
+        let (camera_dir, camera_right, camera_up) = camera.directions();
 
         Self {
             resolution: [w, h],
@@ -29,8 +33,12 @@ impl Uniform {
             scene_id: current_scene as u32,
             camera_pos,
             fov: camera.fov_multiplier,
-            camera_dir,
+            camera_dir: camera_dir.to_array(),
             _padding: 0.0,
+            camera_right: camera_right.to_array(),
+            _padding_right: 0.0,
+            camera_up: camera_up.to_array(),
+            _padding_up: 0.0,
         }
     }
 }
