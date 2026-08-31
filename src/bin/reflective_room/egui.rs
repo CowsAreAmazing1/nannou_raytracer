@@ -161,7 +161,13 @@ impl Model {
 
                 ui.separator();
 
-                ui.add(Slider::new(&mut self.max_bounces, 1..=10).text("Max Reflections"));
+                ui.add(
+                    Slider::new(
+                        &mut self.scenes[self.current_scene].data.max_bounces,
+                        1..=25,
+                    )
+                    .text("Max Reflections"),
+                );
             });
     }
 }

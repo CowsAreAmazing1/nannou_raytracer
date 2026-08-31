@@ -12,7 +12,7 @@ pub fn create_scenes() -> Vec<Scene> {
     let mut scenes = Vec::new();
 
     {
-        let mut scene = Scene::new("test");
+        let mut scene = Scene::with_max_bounces("test", 5);
 
         let two_to_three = |vec: &Vec2| vec3(vec.x, 0.0, vec.y);
 

@@ -7,7 +7,7 @@ struct Uniforms {
     camera_pos: vec3<f32>,
     fov: f32,
     camera_dir: vec3<f32>,
-    max_bounces: u32,
+    _padding: f32,
 }
 
 struct Plane {
@@ -38,17 +38,6 @@ struct Ellipse {
     _padding5: f32,
 }
 
-struct Portal {
-    ellipse: Ellipse,
-    transform_matrix: mat4x4<f32>,
-    inverse_transform_matrix: mat4x4<f32>,
-}
-
-struct PortalPair {
-    portal_a: Portal,
-    portal_b: Portal,
-}
-
 struct Cube {
     planes: array<Plane, 6>,
 }
@@ -57,7 +46,7 @@ struct SceneData {
     plane_count: u32,
     ellipse_count: u32,
     cube_count: u32,
-    _padding: u32,
+    max_bounces: u32,
     planes: array<Plane, 10>,
     ellipses: array<Ellipse, 4>,
     cubes: array<Cube, 4>,
@@ -444,7 +433,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let primary_ray = Ray(ray_origin, ray_direction);
 
     // Trace the ray
-    let hit_info = trace_ray(primary_ray, uniforms.max_bounces);
+    let hit_info = trace_ray(primary_ray, scene.max_bounces);
 
     var color = vec3<f32>(0.1, 0.2, 0.4); // Blue gradient background
 

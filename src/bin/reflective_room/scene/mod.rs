@@ -13,7 +13,6 @@ const MAX_PLANES: usize = 10;
 const MAX_ELLIPSES: usize = 4;
 const MAX_CUBES: usize = 4;
 
-#[derive(Default)]
 pub struct SceneData {
     pub plane_count: u32,
     pub ellipse_count: u32,
@@ -21,6 +20,21 @@ pub struct SceneData {
     pub planes: Vec<Plane>,
     pub ellipses: Vec<Ellipse>,
     pub cubes: Vec<Cube>,
+    pub max_bounces: u32,
+}
+
+impl Default for SceneData {
+    fn default() -> Self {
+        Self {
+            plane_count: Default::default(),
+            ellipse_count: Default::default(),
+            cube_count: Default::default(),
+            planes: Default::default(),
+            ellipses: Default::default(),
+            cubes: Default::default(),
+            max_bounces: 3,
+        }
+    }
 }
 
 pub struct Scene {
@@ -34,6 +48,12 @@ impl Scene {
             name: name.into(),
             data: SceneData::default(),
         }
+    }
+
+    pub fn with_max_bounces(name: &str, max_bounces: u32) -> Self {
+        let mut scene = Self::new(name);
+        scene.data.max_bounces = max_bounces;
+        scene
     }
 
     pub fn add_plane(&mut self, plane: Plane) {
@@ -88,7 +108,7 @@ impl Scene {
             plane_count: self.data.plane_count,
             ellipse_count: self.data.ellipse_count,
             cube_count: self.data.cube_count,
-            _padding: 0,
+            max_bounces: self.data.max_bounces,
             planes,
             ellipses,
             cubes,
@@ -102,7 +122,7 @@ pub struct SceneDataRaw {
     pub plane_count: u32,
     pub ellipse_count: u32,
     pub cube_count: u32,
-    _padding: u32,
+    pub max_bounces: u32,
     pub planes: [PlaneRaw; MAX_PLANES],
     pub ellipses: [EllipseRaw; MAX_ELLIPSES],
     pub cubes: [CubeRaw; MAX_CUBES],
