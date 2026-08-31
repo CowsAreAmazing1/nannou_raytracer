@@ -1,10 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use nannou::{
-    color::Srgb,
+    color::{DARKGRAY, Srgb},
     glam::{Quat, Vec3},
 };
 
-use crate::util::WORLD_UP;
+use crate::util::{color_convert, vec_to};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Plane {
@@ -22,7 +22,7 @@ impl Default for Plane {
         Self {
             point: Vec3::ZERO,
             quat: Quat::IDENTITY,
-            color: Srgb::default(),
+            color: color_convert(DARKGRAY),
             width: 1.0,
             height: 1.0,
             is_infinite: true,
@@ -32,74 +32,31 @@ impl Default for Plane {
 }
 
 impl Plane {
+    /// Creates a new infinite plane through the `point`, with the given `quat` rotation and `color`.
     pub fn new<P: Into<Vec3>, C: Into<Srgb>>(point: P, quat: Quat, color: C) -> Self {
         Self {
             point: point.into(),
             quat,
             color: color.into(),
-            width: 0.0,
-            height: 0.0,
-            is_infinite: true,
-            reflectivity: 0.0,
+            ..Default::default()
         }
     }
 
-    pub fn new_finite<P: Into<Vec3>, C: Into<Srgb>>(
-        point: P,
-        quat: Quat,
-        color: C,
-        width: f32,
-        height: f32,
-    ) -> Self {
-        Self {
-            point: point.into(),
-            quat,
-            color: color.into(),
-            width,
-            height,
-            is_infinite: false,
-            reflectivity: 0.0,
-        }
+    // Sets the plane to be finite with the given `width` and `height`
+    pub fn make_finite(&mut self, width: f32, height: f32) -> Self {
+        self.width = width;
+        self.height = height;
+        self.is_infinite = false;
+        *self
     }
 
-    pub fn new_reflective<P: Into<Vec3>, C: Into<Srgb>>(
-        point: P,
-        quat: Quat,
-        color: C,
-        reflectivity: f32,
-    ) -> Self {
-        Self {
-            point: point.into(),
-            quat,
-            color: color.into(),
-            width: 0.0,
-            height: 0.0,
-            is_infinite: true,
-            reflectivity,
-        }
-    }
-
-    pub fn new_finite_reflective<P: Into<Vec3>, C: Into<Srgb>>(
-        point: P,
-        quat: Quat,
-        color: C,
-        width: f32,
-        height: f32,
-        reflectivity: f32,
-    ) -> Self {
-        Self {
-            point: point.into(),
-            quat,
-            color: color.into(),
-            width,
-            height,
-            is_infinite: false,
-            reflectivity,
-        }
+    pub fn make_reflective(&mut self, reflectivity: f32) -> Self {
+        self.reflectivity = reflectivity;
+        *self
     }
 
     pub fn normal(&self) -> Vec3 {
-        (self.quat * WORLD_UP).normalize()
+        vec_to(self.quat)
     }
 }
 

@@ -35,7 +35,7 @@ struct Ellipse {
     color: vec3<f32>,
     _padding4: f32,
     border_color: vec3<f32>,
-    _padding5: f32,
+    reflectivity: f32,
 }
 
 struct Cube {
@@ -324,6 +324,7 @@ fn trace_ray_single_bounce(ray: Ray) -> HitInfo {
             hit_info.point = ray.origin + t * ray.direction;
             hit_info.normal = ellipse.normal;
             hit_info.color = get_ellipse_color(ellipse, hit_info.point);
+            hit_info.reflectivity = ellipse.reflectivity;;
         }
     }
 

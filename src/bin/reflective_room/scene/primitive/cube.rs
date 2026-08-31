@@ -1,18 +1,33 @@
 use bytemuck::{Pod, Zeroable};
-use nannou::{color::Srgb, glam::Vec3};
+use nannou::{
+    color::{GREEN, Srgb},
+    glam::Vec3,
+};
 
 use crate::{
     scene::primitive::plane::{Plane, PlaneRaw},
-    util::quat_to,
+    util::{color_convert, quat_to},
 };
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Cube {
     /// Position of the center of the cube
     pub center: Vec3,
     /// Edge length
     pub size: f32,
     pub color: Srgb,
+    pub reflectivity: f32,
+}
+
+impl Default for Cube {
+    fn default() -> Self {
+        Self {
+            center: Vec3::ZERO,
+            size: 1.0,
+            color: color_convert(GREEN),
+            reflectivity: 0.0,
+        }
+    }
 }
 
 impl Cube {
@@ -21,7 +36,13 @@ impl Cube {
             center: center.into(),
             size,
             color: color.into(),
+            ..Default::default()
         }
+    }
+
+    pub fn make_reflective(&mut self, reflectivity: f32) -> Self {
+        self.reflectivity = reflectivity;
+        *self
     }
 
     pub fn planes(&self) -> [Plane; 6] {
@@ -32,7 +53,9 @@ impl Cube {
             let point = self.center + axis * (0.5 * self.size);
             let quat = quat_to(axis);
 
-            Plane::new_finite(point, quat, self.color, self.size, self.size)
+            Plane::new(point, quat, self.color)
+                .make_finite(self.size, self.size)
+                .make_reflective(self.reflectivity)
         })
     }
 
@@ -44,7 +67,10 @@ impl Cube {
             let point = self.center + axis * (0.5 * self.size);
             let quat = quat_to(axis);
 
-            Plane::new_finite(point, quat, self.color, self.size, self.size).into()
+            Plane::new(point, quat, self.color)
+                .make_finite(self.size, self.size)
+                .make_reflective(self.reflectivity)
+                .into()
         })
     }
 }

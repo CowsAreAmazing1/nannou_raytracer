@@ -1,4 +1,7 @@
-use nannou::glam::{Quat, Vec3};
+use nannou::{
+    color::{Component, Srgb},
+    glam::{Quat, Vec3},
+};
 
 pub const WORLD_FORWARDS: Vec3 = Vec3::X;
 pub const WORLD_RIGHT: Vec3 = Vec3::Z;
@@ -13,4 +16,8 @@ pub fn quat_to(vec: Vec3) -> Quat {
 
 pub fn vec_to(quat: Quat) -> Vec3 {
     (quat * WORLD_UP).normalize()
+}
+
+pub fn color_convert<T: Component>(color: Srgb<T>) -> Srgb<f32> {
+    color.into_format::<f32>()
 }

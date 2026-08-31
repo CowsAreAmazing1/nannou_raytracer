@@ -1,10 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use nannou::{
-    color::Srgb,
+    color::{BLACK, ORANGE, Srgb},
     glam::{Quat, Vec3},
 };
 
-use crate::util::quat_to;
+use crate::util::{color_convert, quat_to, vec_to};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Ellipse {
@@ -13,14 +13,17 @@ pub struct Ellipse {
     /// Quaternion, representing the orientation of the ellipse normal w.r.t. the up (Y) axis
     pub quat: Quat,
     /// Innder radius
-    pub(crate) radius_a: f32,
+    pub radius_a: f32,
     /// Outer radius
-    pub(crate) radius_b: f32,
+    pub radius_b: f32,
+    /// Thickness of the border
     border_thickness: f32,
     /// Inside color
     pub color: Srgb,
     /// Outer color
     border_color: Srgb,
+    /// Reflectivity
+    reflectivity: f32,
 }
 
 impl Default for Ellipse {
@@ -28,42 +31,45 @@ impl Default for Ellipse {
         Self {
             center: Vec3::ZERO,
             quat: quat_to(Vec3::X),
-            radius_a: 0.0,
+            radius_a: 0.6,
             radius_b: 1.0,
-            border_thickness: 0.1,
-            color: Srgb::default(),
-            border_color: Srgb::default(),
+            border_thickness: 0.15,
+            color: color_convert(ORANGE),
+            border_color: color_convert(BLACK),
+            reflectivity: 0.0,
         }
     }
 }
 
 impl Ellipse {
-    pub fn new<P: Into<Vec3>, C: Into<Srgb>>(
-        center: P,
-        quat: Quat,
-        radius_a: f32,
-        radius_b: f32,
-        border_thickness: f32,
-        color: C,
-        border_color: C,
-    ) -> Self {
+    pub fn new<P: Into<Vec3>, C: Into<Srgb>>(center: P, quat: Quat, color: C) -> Self {
         Self {
             center: center.into(),
             quat,
-            radius_a,
-            radius_b,
-            border_thickness,
             color: color.into(),
-            border_color: border_color.into(),
+            ..Default::default()
         }
     }
 
-    pub fn quat(&self) -> Quat {
-        self.quat
+    pub fn set_radii(&mut self, radius_a: f32, radius_b: f32) -> Self {
+        self.radius_a = radius_a;
+        self.radius_b = radius_b;
+        *self
+    }
+
+    pub fn set_border<C: Into<Srgb>>(&mut self, border_thickness: f32, border_color: C) -> Self {
+        self.border_thickness = border_thickness;
+        self.border_color = border_color.into();
+        *self
+    }
+
+    pub fn make_reflective(&mut self, reflectivity: f32) -> Self {
+        self.reflectivity = reflectivity;
+        *self
     }
 
     pub fn normal(&self) -> Vec3 {
-        (self.quat() * Vec3::Y).normalize()
+        vec_to(self.quat)
     }
 }
 
@@ -81,7 +87,7 @@ pub struct EllipseRaw {
     color: [f32; 3],
     _padding4: f32,
     border_color: [f32; 3],
-    _padding5: f32,
+    reflectivity: f32,
 }
 
 impl Default for EllipseRaw {
@@ -98,7 +104,7 @@ impl Default for EllipseRaw {
             color: [0.0; 3],
             _padding4: 0.0,
             border_color: [0.0; 3],
-            _padding5: 0.0,
+            reflectivity: 0.0,
         }
     }
 }
@@ -108,7 +114,7 @@ impl From<Ellipse> for EllipseRaw {
         Self {
             center: value.center.to_array(),
             _padding1: 0.0,
-            normal: (value.quat() * Vec3::Y).normalize().to_array(),
+            normal: value.normal().to_array(),
             _padding2: 0.0,
             radius_a: value.radius_a,
             radius_b: value.radius_b,
@@ -117,7 +123,7 @@ impl From<Ellipse> for EllipseRaw {
             color: value.color.into_components().into(),
             _padding4: 0.0,
             border_color: value.border_color.into_components().into(),
-            _padding5: 0.0,
+            reflectivity: value.reflectivity,
         }
     }
 }
@@ -127,7 +133,7 @@ impl From<&Ellipse> for EllipseRaw {
         Self {
             center: value.center.to_array(),
             _padding1: 0.0,
-            normal: (value.quat() * Vec3::Y).normalize().to_array(),
+            normal: value.normal().to_array(),
             _padding2: 0.0,
             radius_a: value.radius_a,
             radius_b: value.radius_b,
@@ -136,7 +142,7 @@ impl From<&Ellipse> for EllipseRaw {
             color: value.color.into_components().into(),
             _padding4: 0.0,
             border_color: value.border_color.into_components().into(),
-            _padding5: 0.0,
+            reflectivity: value.reflectivity,
         }
     }
 }
