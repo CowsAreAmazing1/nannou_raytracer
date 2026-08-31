@@ -372,33 +372,63 @@ fn trace_ray(ray: Ray, max_bounces: u32) -> HitInfo {
     var final_hit_info: HitInfo;
     final_hit_info.hit = false;
     final_hit_info.t = 1000.0;
+    final_hit_info.color = vec3<f32>(0.1, 0.2, 0.4);
     final_hit_info.multiplier = 1.0;
     final_hit_info.reflectivity = 0.0;
 
+    let background_color = vec3<f32>(0.1, 0.2, 0.4);
+    var accumulated_color = vec3<f32>(0.0);
+    var throughput = vec3<f32>(1.0);
+    var hit_seen = false;
+
     for (var bounce: u32 = 0u; bounce < max_bounces; bounce++) {
-        // Send ray through the scene
         let hit_info = trace_ray_single_bounce(current_ray);
 
-        if bounce == max_bounces - 1u {
-            // Last bounce, use the hit info
-            final_hit_info = hit_info;
-            break;
-        } else if hit_info.reflectivity > 0.0 {
-            // Hit surface was reflective
-            // Calculate reflection direction
-            let reflected_direction = reflect(current_ray.direction, hit_info.normal);
-            current_ray.origin = hit_info.point + 0.001 * reflected_direction; // Offset to avoid self-intersection
-            current_ray.direction = reflected_direction;
-
-            // Update multiplier for color contribution
-            final_hit_info.reflectivity = hit_info.reflectivity;
-            final_hit_info.multiplier *= hit_info.reflectivity;
-        } else { // Hit surface was not reflective, just use the hit info
-            let mult = final_hit_info.multiplier;
-            final_hit_info = hit_info; // <-
-            final_hit_info.multiplier = mult;
+        if !hit_info.hit {
+            if hit_seen {
+                accumulated_color += background_color * throughput;
+                final_hit_info.hit = true;
+                final_hit_info.color = accumulated_color;
+                final_hit_info.multiplier = 1.0;
+            } else {
+                final_hit_info.hit = false;
+                final_hit_info.color = background_color;
+                final_hit_info.multiplier = 1.0;
+            }
             break;
         }
+
+        hit_seen = true;
+
+        let reflectivity = clamp(hit_info.reflectivity, 0.0, 1.0);
+        accumulated_color += (1.0 - reflectivity) * hit_info.color * throughput;
+        throughput *= reflectivity;
+
+        if reflectivity <= 0.0001 {
+            final_hit_info = hit_info;
+            final_hit_info.hit = true;
+            final_hit_info.color = accumulated_color;
+            final_hit_info.multiplier = 1.0;
+            break;
+        }
+
+        let reflected_direction = reflect(current_ray.direction, hit_info.normal);
+        current_ray.origin = hit_info.point + 0.001 * reflected_direction;
+        current_ray.direction = reflected_direction;
+
+        if bounce == max_bounces - 1u {
+            final_hit_info = hit_info;
+            final_hit_info.hit = true;
+            final_hit_info.color = accumulated_color;
+            final_hit_info.multiplier = 1.0;
+            break;
+        }
+    }
+
+    if !final_hit_info.hit && hit_seen {
+        final_hit_info.hit = true;
+        final_hit_info.color = accumulated_color;
+        final_hit_info.multiplier = 1.0;
     }
 
     return final_hit_info;
@@ -441,8 +471,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if hit_info.hit {
         color = hit_info.color;
     }
-
-    color *= hit_info.multiplier;
 
     return vec4<f32>(color, 1.0);
 }
