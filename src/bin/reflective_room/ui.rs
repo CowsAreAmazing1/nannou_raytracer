@@ -73,6 +73,7 @@ impl Model {
                 &self.scenes[self.current_scene].data,
                 emitter.origin,
                 ray_direction,
+                10,
             );
             debug_rays.push(debug_ray);
         }
@@ -124,7 +125,7 @@ impl Model {
         let origin = self.camera.position;
         let direction = self.camera.forward();
 
-        let dr = trace_debug_ray(&self.scenes[self.current_scene].data, origin, direction);
+        let dr = trace_debug_ray(&self.scenes[self.current_scene].data, origin, direction, 1);
 
         if let Some(end_pos) = dr.segments.last().map(|s| s.end)
             && let Some(end_pos_2d) = self.camera.world_to_screen(end_pos, screen_size)

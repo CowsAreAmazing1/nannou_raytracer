@@ -162,6 +162,9 @@ fn update(app: &App, model: &mut Model, update: Update) {
     if app.keys.down.contains(&Key::R) {
         model.add_debug_ray_emitter();
     }
+
+    let scene_data = &mut model.scenes[model.current_scene].data;
+    scene_data.cubes[0].center = model.camera.position;
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {

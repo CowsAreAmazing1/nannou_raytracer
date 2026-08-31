@@ -1,13 +1,16 @@
 use std::f32::consts::FRAC_PI_2;
 
-use nannou::glam::{EulerRot::XYZ, Quat, Vec2, Vec3, vec2, vec3};
+use nannou::{
+    color::{BROWN, HOTPINK, PURPLE},
+    glam::{EulerRot::XYZ, Quat, Vec2, Vec3, vec2, vec3},
+};
 
 use crate::{
     scene::{
         Scene,
         primitive::{cube::Cube, ellipse::Ellipse, plane::Plane},
     },
-    util::{WORLD_UP, quat_to},
+    util::{WORLD_UP, color_convert, quat_to},
 };
 
 pub fn create_scenes() -> Vec<Scene> {
@@ -59,7 +62,7 @@ pub fn create_scenes() -> Vec<Scene> {
             Plane::new(-5.0 * WORLD_UP, Quat::IDENTITY, (0.8, 0.8, 0.8)).make_reflective(0.5),
         );
 
-        scene.add_cube(Cube::new(Vec3::ZERO, 0.5, (0.0, 1.0, 0.0)).make_reflective(0.5));
+        scene.add_cube(Cube::new(Vec3::ZERO, 0.3, color_convert(PURPLE)).make_reflective(0.5));
 
         scenes.push(scene);
     }
@@ -90,17 +93,45 @@ pub fn create_scenes() -> Vec<Scene> {
                 .make_reflective(0.5),
         );
         scene.add_plane(
-            Plane::new(vec3(3.0, 0.0, -2.5), Quat::IDENTITY, (0.6, 0.6, 0.2)).make_finite(5.0, 5.0).make_reflective(0.5),
+            Plane::new(vec3(3.0, 0.0, -2.5), Quat::IDENTITY, (0.6, 0.6, 0.2))
+                .make_finite(5.0, 5.0)
+                .make_reflective(0.5),
         );
 
         scene.add_plane(
-            Plane::new(vec3(-3.0, 0.0, 2.5), Quat::IDENTITY, (0.2, 1.0, 0.2)).make_finite(5.0, 5.0).make_reflective(0.5),
+            Plane::new(vec3(-3.0, 0.0, 2.5), Quat::IDENTITY, (0.2, 1.0, 0.2))
+                .make_finite(5.0, 5.0)
+                .make_reflective(0.5),
         );
         scene.add_plane(
             Plane::new(vec3(-3.0, 0.0, -2.5), Quat::IDENTITY, (0.2, 0.2, 1.0))
                 .make_finite(5.0, 5.0)
                 .make_reflective(0.5),
         );
+
+        scene.add_cube(Cube::new(Vec3::ZERO, 0.3, color_convert(PURPLE)).make_reflective(0.5));
+
+        scenes.push(scene);
+    }
+
+    {
+        let mut scene = Scene::new("Single Mirror");
+
+        scene.add_plane(
+            Plane::new(Vec3::ZERO, Quat::IDENTITY, color_convert(BROWN)).make_finite(10.0, 10.0),
+        );
+
+        scene.add_plane(
+            Plane::new(
+                vec3(0.0, 1.5, -3.5),
+                quat_to(Vec3::Z),
+                color_convert(HOTPINK),
+            )
+            .make_finite(2.0, 3.0)
+            .make_reflective(0.5),
+        );
+
+        scene.add_cube(Cube::new(-2.0 * Vec3::Y, 0.3, color_convert(PURPLE)).make_reflective(0.5));
 
         scenes.push(scene);
     }

@@ -23,7 +23,7 @@ pub struct Ellipse {
     /// Outer color
     border_color: Srgb,
     /// Reflectivity
-    reflectivity: f32,
+    pub reflectivity: f32,
 }
 
 impl Default for Ellipse {
