@@ -11,9 +11,11 @@ use crate::{
 pub struct Camera {
     pub position: Vec3,
     pub rotation: Quat,
+    pub roll: f32,
     pub speed: f32,
     pub sensitivity: f32,
     pub fov_multiplier: f32,
+    pub(crate) use_free_roll_camera: bool,
 }
 
 impl Camera {
@@ -21,9 +23,11 @@ impl Camera {
         Self {
             position: vec3(0.0, 1.0, 0.0),
             rotation: Quat::from_rotation_y(-PI / 2.0),
+            roll: 0.0,
             speed: 5.0,
             sensitivity: 0.003,
             fov_multiplier: 1.0,
+            use_free_roll_camera: false,
         }
     }
 
@@ -31,11 +35,11 @@ impl Camera {
         (self.rotation * WORLD_FORWARDS).normalize()
     }
 
-    pub fn right(&self) -> Vec3 {
+    pub fn _right(&self) -> Vec3 {
         (self.rotation * WORLD_RIGHT).normalize()
     }
 
-    pub fn up(&self) -> Vec3 {
+    pub fn _up(&self) -> Vec3 {
         (self.rotation * WORLD_UP).normalize()
     }
 
@@ -47,6 +51,7 @@ impl Camera {
 
     pub fn movement(&mut self, app: &App, dt: f32, scene_data: &SceneData) {
         let old_position = self.position;
+        let dt = dt.clamp(0.0, 0.1);
 
         let (forward, right, up) = self.directions();
 
@@ -79,13 +84,20 @@ impl Camera {
         }
 
         if moved {
-            movement = movement.normalize() * self.speed * dt;
+            let movement_length = movement.length_squared();
+            if movement_length <= f32::EPSILON || !movement_length.is_finite() {
+                return;
+            }
+
+            movement = movement / movement_length.sqrt() * self.speed * dt;
             let new_position = self.position + movement;
 
-            if let Some(teleported_pos) =
-                check_camera_portal_teleport(scene_data, old_position, new_position)
+            if let Some((teleported_pos, teleported_rotation)) =
+                check_camera_portal_teleport(scene_data, old_position, new_position, self.rotation)
             {
                 self.position = teleported_pos;
+                self.rotation = teleported_rotation;
+                self.roll = Self::roll_from_rotation(self.rotation);
             } else {
                 self.position = new_position;
             }
@@ -99,12 +111,9 @@ impl Camera {
             rotation -= 1.0;
         }
         if rotation != 0.0 {
-            let angle = rotation * self.sensitivity;
-            let roll_quat = Quat::from_axis_angle(self.forward(), angle);
-
-            println!("{:?}", roll_quat);
-
-            self.rotation = roll_quat * self.rotation;
+            let angle = rotation * dt;
+            self.roll += angle;
+            self.rotation = Self::rotation_from_forward_roll(self.forward(), self.roll);
         }
 
         if app.keys.down.contains(&Key::Equals) {
@@ -118,23 +127,117 @@ impl Camera {
     }
 
     pub fn rotate_view(&mut self, pos: Vec2) {
+        if self.use_free_roll_camera {
+            self.rotate_view_free(pos);
+        } else {
+            self.rotate_view_rollless(pos);
+        }
+    }
+
+    fn rotate_view_rollless(&mut self, pos: Vec2) {
+        let delta = pos * self.sensitivity;
+        let current_orientation = Self::rotation_from_forward_roll(self.forward(), self.roll);
+        let yaw_axis = (current_orientation * WORLD_UP).normalize();
+        let camera_right = (current_orientation * WORLD_RIGHT).normalize();
+
+        // Reduce yaw input as the view approaches the rolled yaw axis.
+        let yaw_scale = (1.0 - self.forward().dot(yaw_axis).powi(2)).max(0.0).sqrt();
+        let yaw = Quat::from_axis_angle(yaw_axis, -delta.x * yaw_scale);
+        let pitch = Quat::from_axis_angle(camera_right, delta.y);
+        let aimed_forward = (pitch * yaw * current_orientation * WORLD_FORWARDS).normalize();
+
+        // Keep the direction away from both frame-construction singularities.
+        let max_axis_alignment = 0.95;
+        let next_forward = Self::clamp_forward_from_axis(
+            Self::clamp_forward_from_axis(
+                aimed_forward,
+                yaw_axis,
+                max_axis_alignment,
+                camera_right,
+            ),
+            WORLD_UP,
+            max_axis_alignment,
+            camera_right,
+        );
+
+        self.rotation = Self::rotation_from_forward_roll(next_forward, self.roll);
+    }
+
+    fn clamp_forward_from_axis(forward: Vec3, axis: Vec3, max_dot: f32, fallback: Vec3) -> Vec3 {
+        let dot = forward.dot(axis);
+        if dot.abs() <= max_dot {
+            return forward;
+        }
+
+        let perpendicular = forward - axis * dot;
+        let perpendicular = if perpendicular.length_squared() > f32::EPSILON {
+            perpendicular.normalize()
+        } else {
+            let fallback = fallback - axis * fallback.dot(axis);
+            if fallback.length_squared() > f32::EPSILON {
+                fallback.normalize()
+            } else {
+                WORLD_FORWARDS - axis * WORLD_FORWARDS.dot(axis)
+            }
+            .normalize()
+        };
+
+        perpendicular * (1.0 - max_dot * max_dot).sqrt() + axis * dot.signum() * max_dot
+    }
+
+    fn rotation_from_forward_roll(forward: Vec3, roll: f32) -> Quat {
+        let forward = forward.normalize();
+
+        // Project world up onto the plane perpendicular to forward to create a no-roll frame.
+        let projected_up = WORLD_UP - forward * WORLD_UP.dot(forward);
+        let base_up = if projected_up.length_squared() > f32::EPSILON {
+            projected_up.normalize()
+        } else {
+            // World up is parallel to forward, so use world right at the pole instead.
+            (WORLD_RIGHT - forward * WORLD_RIGHT.dot(forward)).normalize()
+        };
+
+        // Apply only the explicitly stored roll, then complete the orthonormal camera basis.
+        let roll_rotation = Quat::from_axis_angle(forward, roll);
+        let up = (roll_rotation * base_up).normalize();
+        let right = forward.cross(up).normalize();
+
+        Quat::from_mat3(&Mat3::from_cols(forward, up, right)).normalize()
+    }
+
+    fn roll_from_rotation(rotation: Quat) -> f32 {
+        let forward = (rotation * WORLD_FORWARDS).normalize();
+
+        // Recreate the same no-roll reference frame used by rotation_from_forward_roll.
+        let projected_up = WORLD_UP - forward * WORLD_UP.dot(forward);
+        let base_up = if projected_up.length_squared() > f32::EPSILON {
+            projected_up.normalize()
+        } else {
+            (WORLD_RIGHT - forward * WORLD_RIGHT.dot(forward)).normalize()
+        };
+        let base_right = forward.cross(base_up).normalize();
+        let camera_up = (rotation * WORLD_UP).normalize();
+
+        // Measure the signed twist of the transformed camera up around forward.
+        camera_up.dot(base_right).atan2(camera_up.dot(base_up))
+    }
+
+    fn rotate_view_free(&mut self, pos: Vec2) {
         let delta = pos * self.sensitivity;
 
-        let yaw_quat = Quat::from_axis_angle(self.up(), -delta.x);
-        let pitch_quat = Quat::from_axis_angle(self.right(), delta.y);
+        // Free quaternion look retained for a future control-mode toggle.
+        let yaw_quat = Quat::from_axis_angle(WORLD_UP, -delta.x);
+        let pitch_quat = Quat::from_axis_angle(WORLD_RIGHT, delta.y);
 
-        self.rotation = yaw_quat * pitch_quat * self.rotation;
+        self.rotation = (self.rotation * yaw_quat * pitch_quat).normalize();
     }
 
     fn shader_camera_right(&self) -> Vec3 {
-        let camera_forward = self.forward();
-        camera_forward.cross(WORLD_UP).normalize()
+        (self.rotation * WORLD_RIGHT).normalize()
     }
 
     fn shader_camera_up(&self) -> Vec3 {
-        let camera_right = self.shader_camera_right();
-        let camera_forward = self.forward();
-        camera_right.cross(camera_forward)
+        (self.rotation * WORLD_UP).normalize()
     }
 
     /// Performs 3D to 2D mapping of the world position of an object for the camera.

@@ -14,6 +14,20 @@ use crate::{
 
 impl Camera {
     fn add_ui(&mut self, ui: &mut Ui) {
+        let roll_text = if self.use_free_roll_camera {
+            "free"
+        } else {
+            "clamped"
+        };
+
+        ui.horizontal(|ui| {
+            ui.label("Use ");
+            if ui.button(roll_text).clicked() {
+                self.use_free_roll_camera = !self.use_free_roll_camera;
+            }
+            ui.label(" roll camera")
+        });
+
         let position = &mut self.position;
         ui.collapsing("Camera Position", |ui| {
             ui.add(Slider::new(&mut position.x, -10.0..=10.0));
